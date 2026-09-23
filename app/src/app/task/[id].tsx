@@ -20,14 +20,17 @@ import { useAsync } from '@/hooks/useAsync';
 import { useSafetyChecks } from '@/hooks/useSafetyChecks';
 import { taskService, videoService } from '@/services';
 import { useAgent } from '@/state/AgentProvider';
+import { useWorkerId } from '@/state/SessionProvider';
 import type { Task, TaskStatus, TrainingVideo } from '@/types/domain';
 import { colors, spacing } from '@/theme/tokens';
 import { formatMinutes, formatVideoLength } from '@/utils/format';
+import { dayLabel } from '@/utils/schedule';
 
-async function loadTask(id: string) {
-  const task = await taskService.getTask(id);
+async function loadTask(workerId: string, id: string) {
+  const task = await taskService.getTask(workerId, id);
   const ids = [task.tutorialVideoId, ...task.relatedVideoIds].filter((v): v is string => Boolean(v));
-  const videos = await videoService.getVideos(ids);
+  // Training links are optional: a Cat server outage must not hide the task.
+  const videos = ids.length ? await videoService.getVideos(ids).catch(() => []) : [];
   return {
     task,
     tutorial: videos.find((v) => v.id === task.tutorialVideoId),
@@ -39,10 +42,11 @@ async function loadTask(id: string) {
 
 export default function TaskDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
-  const { data, error, reload } = useAsync(() => loadTask(id), [id]);
+  const workerId = useWorkerId();
+  const { data, error, reload } = useAsync(() => loadTask(workerId, id), [workerId, id]);
   const [override, setOverride] = useState<Task>();
   const [saving, setSaving] = useState(false);
-  const [saveError, setSaveError] = useState(false);
+  const [saveError, setSaveError] = useState<string>();
   const { checked, toggle } = useSafetyChecks(id);
   const { startVoice } = useAgent();
 
@@ -58,11 +62,11 @@ export default function TaskDetailScreen() {
   const setStatus = async (status: TaskStatus) => {
     if (!task) return;
     setSaving(true);
-    setSaveError(false);
+    setSaveError(undefined);
     try {
       setOverride(await taskService.updateTaskStatus(task.id, status));
-    } catch {
-      setSaveError(true);
+    } catch (e) {
+      setSaveError(e instanceof Error ? e.message : 'Could not update the task.');
     } finally {
       setSaving(false);
     }
@@ -83,6 +87,7 @@ export default function TaskDetailScreen() {
 
   const { tutorial, related } = data;
   const started = task.status === 'in_progress' || task.status === 'completed';
+  const plannedDay = task.scheduledStartAt ? dayLabel(new Date(task.scheduledStartAt)) : undefined;
   const remaining = task.safetyChecklist.filter((i) => !checked.has(i.id)).length;
   const askAboutTask = () => startVoice({ taskId: task.id, taskTitle: task.title });
 
@@ -90,7 +95,7 @@ export default function TaskDetailScreen() {
     <SafeAreaView style={styles.screen}>
       <ScreenHeader
         label={task.id}
-        right={<IconButton icon="microphone" label="Ask Jarvis about this task" tone="plain" onPress={askAboutTask} />}
+        right={<IconButton icon="microphone" label="Ask Cat about this task" tone="plain" onPress={askAboutTask} />}
       />
       <ScrollView contentContainerStyle={styles.content}>
         {/* Summary */}
@@ -103,7 +108,19 @@ export default function TaskDetailScreen() {
             <Fact icon="cog-outline" label="Machine" value={task.machine} />
             <Fact icon="map-marker-outline" label="Location" value={task.location} />
             <Fact icon="clock-outline" label="Estimated time" value={formatMinutes(task.estimatedMinutes)} mono />
-            <Fact icon="calendar-clock" label="Planned start" value={task.scheduledStart} mono />
+            <Fact
+              icon="calendar-clock"
+              label="Planned start"
+              value={plannedDay && plannedDay !== 'Today' ? `${task.scheduledStart} · ${plannedDay}` : task.scheduledStart}
+              mono
+            />
+            {task.weather ? (
+              <Fact icon="weather-partly-cloudy" label="Conditions" value={`${task.weather}${task.shiftType ? ` · ${task.shiftType} shift` : ''}`} />
+            ) : null}
+            {task.parallel && task.workSharePct !== undefined ? (
+              <Fact icon="account-group-outline" label="Your share" value={`≈ ${Math.round(task.workSharePct)}% of a shared task`} />
+            ) : null}
+            {task.taskCode ? <Fact icon="pound" label="Task" value={task.taskCode} mono /> : null}
           </View>
         </View>
 
@@ -164,8 +181,8 @@ export default function TaskDetailScreen() {
       {/* Sticky primary action */}
       <View style={styles.footer}>
         {saveError ? (
-          <AppText variant="small" tone="warning" style={{ textAlign: 'center' }}>
-            Could not update the task. Try again.
+          <AppText variant="small" tone="warning" style={{ textAlign: 'center' }} accessibilityLiveRegion="polite">
+            {saveError} Try again.
           </AppText>
         ) : null}
         {task.status === 'completed' ? (
@@ -177,8 +194,13 @@ export default function TaskDetailScreen() {
           </View>
         ) : task.status === 'in_progress' ? (
           <ActionButton label="Mark task complete" icon="check" loading={saving} onPress={() => setStatus('completed')} />
-        ) : task.status === 'blocked' ? (
-          <ActionButton label="Blocked" hint={task.blockedReason} disabled onPress={() => undefined} />
+        ) : task.status === 'blocked' || task.status === 'cancelled' ? (
+          <ActionButton
+            label={task.status === 'cancelled' ? 'Cancelled' : 'Blocked'}
+            hint={task.blockedReason}
+            disabled
+            onPress={() => undefined}
+          />
         ) : (
           <ActionButton
             label="Start task"

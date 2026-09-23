@@ -12,8 +12,7 @@ import { AppText } from '@/components/ui/AppText';
 import { Chip } from '@/components/ui/Chip';
 import { ConnectionBanner } from '@/components/ui/ConnectionBanner';
 import { StateView } from '@/components/ui/StateView';
-import { JarvisOrb } from '@/components/agent/JarvisOrb';
-import { useConnectionState } from '@/hooks/useConnectionState';
+import { CatOrb } from '@/components/agent/CatOrb';
 import { useAgent } from '@/state/AgentProvider';
 import type { AgentMessage as Message } from '@/types/agent';
 import { colors, spacing } from '@/theme/tokens';
@@ -27,9 +26,7 @@ const SUGGESTIONS = [
 
 export default function AgentScreen() {
   const agent = useAgent();
-  const connection = useConnectionState();
   const listRef = useRef<FlatList<Message>>(null);
-  const offline = connection === 'offline';
 
   const send = useCallback(
     (text: string) => {
@@ -67,9 +64,9 @@ export default function AgentScreen() {
   } else if (agent.messages.length === 0) {
     body = (
       <ScrollView contentContainerStyle={styles.empty}>
-        <JarvisOrb phase="idle" size={120} />
+        <CatOrb phase="idle" size={120} />
         <AppText variant="heading" style={{ textAlign: 'center' }}>
-          Say “Jarvis” or tap the mic
+          Say “Hey Cat” or tap the mic
         </AppText>
         <AppText variant="small" tone="secondary" style={{ textAlign: 'center', maxWidth: 280 }}>
           Ask about your tasks, a machine, or a step in a training video.
@@ -99,7 +96,7 @@ export default function AgentScreen() {
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
       <View style={styles.header}>
-        <AppText variant="title">Jarvis</AppText>
+        <AppText variant="title">Cat</AppText>
         <AppText variant="small" tone="secondary">
           Field assistant · voice or text
         </AppText>
@@ -140,7 +137,6 @@ export default function AgentScreen() {
           onSend={send}
           onMic={() => agent.startVoice(agent.chatContext)}
           onCamera={() => router.push('/camera')}
-          disabled={offline}
         />
       </KeyboardAvoidingView>
     </SafeAreaView>

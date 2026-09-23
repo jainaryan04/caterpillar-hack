@@ -1,23 +1,14 @@
-import type { Machine, Operator, Shift, Task } from '@/types/domain';
+import type { Machine, Operator, Task } from '@/types/domain';
 
-export const mockOperator: Operator = {
-  id: 'OP-1042',
-  firstName: 'Aryan',
-  lastName: 'Jain',
-  role: 'Equipment Operator II',
-  site: 'North Ridge Quarry',
-  crew: 'Crew B',
-  supervisorName: 'R. Mehta',
-  assignedMachineId: 'MCH-042',
-};
+export const mockOperators: Operator[] = [
+  { id: 'W001', name: 'W001', skills: ['Surface Excavation', 'Drilling', 'Hauling Ore'], skillLevel: 10, fatigue: 27.6, status: 'RESERVED', plannedAssignments: 5 },
+  { id: 'W002', name: 'W002', skills: ['Drilling', 'Hauling Ore'], skillLevel: 6, fatigue: 57.6, status: 'RESERVED', plannedAssignments: 4 },
+  { id: 'W003', name: 'W003', skills: ['Aggregate Collection', 'Hauling Ore', 'Surface Excavation'], skillLevel: 8, fatigue: 43, status: 'AVAILABLE', plannedAssignments: 3 },
+  { id: 'W004', name: 'W004', skills: ['Generator Maintenance', 'Cooling System Inspection'], skillLevel: 7, fatigue: 12.4, status: 'OFF_DUTY' },
+];
 
-export const mockShift: Shift = {
-  id: 'SHIFT-2026-09-23-M',
-  name: 'Morning Shift',
-  start: '06:00',
-  end: '18:00',
-  site: 'North Ridge Quarry',
-};
+/** Supervisor shown in mock SOS updates. */
+export const mockSupervisorName = 'R. Mehta';
 
 export const mockMachines: Machine[] = [
   { id: 'MCH-042', name: 'Excavator MCH-042', model: 'Cat 320D', type: 'excavator', location: 'Pit 2 · Bench 3' },

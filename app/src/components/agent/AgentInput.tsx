@@ -33,12 +33,12 @@ export function AgentInput({
       <TextInput
         value={text}
         onChangeText={setText}
-        placeholder={disabled ? 'Offline. Jarvis needs a connection' : 'Ask Jarvis…'}
+        placeholder={disabled ? 'Offline. Cat needs a connection' : 'Ask Cat…'}
         placeholderTextColor={colors.textMuted}
         style={styles.input}
         multiline
         editable={!disabled}
-        accessibilityLabel="Message to Jarvis"
+        accessibilityLabel="Message to Cat"
         returnKeyType="send"
         submitBehavior="blurAndSubmit"
         onSubmitEditing={send}
@@ -48,7 +48,7 @@ export function AgentInput({
       {hasText ? (
         <IconButton icon="send" label="Send message" tone="brand" onPress={send} size={touch.large} />
       ) : (
-        <IconButton icon="microphone" label="Talk to Jarvis" tone="brand" onPress={onMic} size={touch.large} />
+        <IconButton icon="microphone" label="Talk to Cat" tone="brand" onPress={onMic} size={touch.large} />
       )}
     </View>
   );

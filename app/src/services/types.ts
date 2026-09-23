@@ -12,63 +12,78 @@ import type {
   AgentMessage,
   AgentResponse,
   ImageAnalysis,
+  ImagePoint,
+  ManualOpenResult,
   SosStatus,
+  VoiceConnection,
+  VoiceEvent,
 } from '@/types/agent';
-import type { LearningLibrary, Operator, Shift, Task, TaskStatus, TrainingVideo } from '@/types/domain';
+import type { LearningLibrary, MyTasks, Operator, Task, TaskStatus, TrainingVideo } from '@/types/domain';
 
 export type Unsubscribe = () => void;
 
 export interface OperatorService {
-  getCurrentOperator(): Promise<Operator>;
-  getCurrentShift(): Promise<Shift>;
+  /** Everyone who can sign in on this phone (the worker roster). */
+  listOperators(): Promise<Operator[]>;
+  getOperator(workerId: string): Promise<Operator>;
 }
 
 export interface TaskService {
-  getTodaysTasks(): Promise<Task[]>;
-  getTask(taskId: string): Promise<Task>;
+  /** This worker's work in the live plan: starting today, else the next ones. */
+  getMyTasks(workerId: string): Promise<MyTasks>;
+  /** `taskId` is the Task.id returned by getMyTasks. */
+  getTask(workerId: string, taskId: string): Promise<Task>;
   updateTaskStatus(taskId: string, status: TaskStatus): Promise<Task>;
+}
+
+/** Thrown by TaskService when there is no published plan to read. */
+export class NoPublishedPlanError extends Error {
+  constructor() {
+    super('No plan has been published yet.');
+    this.name = 'NoPublishedPlanError';
+  }
 }
 
 export interface VideoService {
   getVideo(videoId: string): Promise<TrainingVideo>;
   getVideos(videoIds: string[]): Promise<TrainingVideo[]>;
   getLibrary(): Promise<LearningLibrary>;
-  saveProgress(videoId: string, positionSeconds: number): Promise<void>;
+  saveProgress(videoId: string, positionSeconds: number, durationSeconds: number): Promise<void>;
 }
 
 export interface AgentService {
   /** Conversation so far for this operator/shift. */
   getHistory(): Promise<AgentMessage[]>;
   sendMessage(message: string, context?: AgentContext): Promise<AgentResponse>;
+  /** The operator paused a training video: questions about "this" now mean that frame. */
+  reportVideoPause(videoId: string, seconds: number): Promise<void>;
+  /** The operator stopped looking at the paused frame / photo (video resumed, photo closed). */
+  clearScreen(): Promise<void>;
+  /** Manual page(s) behind the last answer, or a given page. */
+  openManual(page?: number): Promise<ManualOpenResult>;
   /** SOS updates pushed by the backend (e.g. over the realtime channel). */
   onSosStatus(listener: (status: SosStatus | null) => void): Unsubscribe;
 }
 
-export interface VoiceListeningOptions {
-  context?: AgentContext;
-}
-
 /**
- * Speech front-end. The real implementation owns the microphone, wake-word
- * engine and speech-to-text; the UI only reacts to these events.
+ * Live voice session with the agent. The session listens continuously; the
+ * wake phrase ("Hey Cat") is detected by the agent, which also speaks the
+ * answers. The UI reacts to the events.
  */
 export interface VoiceService {
-  startListening(options?: VoiceListeningOptions): void;
-  /** Operator finished speaking: finalise the transcript. */
-  stopListening(): void;
-  /** Abort without producing a transcript. */
-  cancel(): void;
-  onWakeWordDetected(listener: () => void): Unsubscribe;
-  /** Partial and final transcripts while listening. */
-  onTranscript(listener: (text: string, isFinal: boolean) => void): Unsubscribe;
-  /** Normalised input level 0..1, ~12 times per second while listening. */
-  onAmplitude(listener: (level: number) => void): Unsubscribe;
-  onError(listener: (message: string) => void): Unsubscribe;
+  /** Said before every question, e.g. "Hey Cat". */
+  readonly wakePhrase: string;
+  /** True when the audio goes over a real connection (not the demo). */
+  readonly live: boolean;
+  getConnection(): VoiceConnection;
+  connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  subscribe(listener: (event: VoiceEvent) => void): Unsubscribe;
   /**
-   * Development only: pretend the wake word was heard. The real service
-   * should leave this undefined; the UI hides the demo trigger when it is.
+   * Demo only: pretend the operator said the wake phrase and a question.
+   * Real implementations leave this undefined.
    */
-  simulateWakeWord?: () => void;
+  simulateUtterance?: (context?: AgentContext) => void;
 }
 
 export interface MediaService {
@@ -76,10 +91,14 @@ export interface MediaService {
     imageUri: string;
     question?: string;
     context?: AgentContext;
+    /** Where the operator circled or tapped on the photo. */
+    circle?: ImagePoint[];
+    tap?: ImagePoint;
   }): Promise<ImageAnalysis>;
 }
 
-export type ConnectionState = 'online' | 'reconnecting' | 'offline';
+/** `degraded`: the task server is up but cannot reach its database. */
+export type ConnectionState = 'online' | 'degraded' | 'offline';
 
 export interface ConnectionService {
   getState(): ConnectionState;

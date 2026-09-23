@@ -1,4 +1,4 @@
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import type { TrainingVideo } from '@/types/domain';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { formatClock } from '@/utils/format';
@@ -22,7 +22,11 @@ export function VideoThumbnail({ video, height = 120, showPlay = true }: { video
           <View key={`h${p}`} style={[styles.hLine, { top: `${p * 100}%` }]} />
         ))}
       </View>
-      <Icon name={machineIcon[video.machineType]} size={Math.min(56, height * 0.42)} color={colors.borderStrong} />
+      {video.posterUrl ? (
+        <Image source={{ uri: video.posterUrl }} style={styles.poster} resizeMode="cover" />
+      ) : (
+        <Icon name={machineIcon[video.machineType]} size={Math.min(56, height * 0.42)} color={colors.borderStrong} />
+      )}
       {showPlay ? (
         <View style={styles.play}>
           <Icon name="play" size={18} color={colors.onBrand} />
@@ -54,6 +58,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     overflow: 'hidden',
   },
+  poster: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   grid: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
   vLine: { position: 'absolute', top: 0, bottom: 0, width: 1, backgroundColor: '#161616' },
   hLine: { position: 'absolute', left: 0, right: 0, height: 1, backgroundColor: '#161616' },

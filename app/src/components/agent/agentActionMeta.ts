@@ -1,4 +1,4 @@
-import type { AgentAction } from '@/types/agent';
+import type { AgentAction, ManualRef } from '@/types/agent';
 import type { IconName } from '../ui/Icon';
 
 export interface ActionMeta {
@@ -24,6 +24,12 @@ export function actionMeta(action: AgentAction): ActionMeta {
       return { label: 'Resume video', icon: 'play', kind: 'button' };
     case 'OPEN_CAMERA':
       return { label: 'Open camera', icon: 'camera-outline', kind: 'button' };
+    case 'OPEN_MANUAL':
+      return {
+        label: action.page ? `Manual p. ${action.page}` : 'Open manual',
+        icon: 'book-open-page-variant-outline',
+        kind: 'button',
+      };
     case 'GET_CURRENT_TASK':
       return { label: "Today's tasks", icon: 'format-list-checks', kind: 'button' };
     case 'TRIGGER_SOS':
@@ -34,4 +40,10 @@ export function actionMeta(action: AgentAction): ActionMeta {
     default:
       return { label: '', icon: 'information-outline', kind: 'hidden' };
   }
+}
+
+/** Answer actions plus an "open the manual page" button when the answer names a page. */
+export function withManualAction(actions: AgentAction[], manual?: ManualRef | null): AgentAction[] {
+  if (!manual?.page || actions.some((a) => a.type === 'OPEN_MANUAL')) return actions;
+  return [...actions, { type: 'OPEN_MANUAL', page: manual.page }];
 }

@@ -5,7 +5,9 @@ import { colors, radius, spacing } from '@/theme/tokens';
 import { formatTimeOfDay } from '@/utils/format';
 import { AppText } from '../ui/AppText';
 import { Icon } from '../ui/Icon';
+import { RemoteImage } from '../ui/RemoteImage';
 import { AgentActions } from './AgentActions';
+import { withManualAction } from './agentActionMeta';
 import { CautionCallout } from './CautionCallout';
 import { Citations, NoSourceNotice } from './Citations';
 import { ContextTag } from './ContextTag';
@@ -50,7 +52,7 @@ export const AgentMessage = memo(function AgentMessage({
           <View style={styles.failed} accessibilityLiveRegion="polite">
             <Icon name="alert-outline" size={16} color={colors.warning} />
             <AppText variant="small" tone="warning" style={{ flex: 1 }}>
-              Not sent. Jarvis is unavailable right now.
+              Not sent. Cat is unavailable right now.
             </AppText>
             <Pressable accessibilityRole="button" onPress={() => onRetry(message.id)} hitSlop={10} style={styles.retry}>
               <AppText variant="small" tone="brand" style={{ fontFamily: 'IBMPlexSans_600SemiBold' }}>
@@ -63,7 +65,7 @@ export const AgentMessage = memo(function AgentMessage({
     );
   }
 
-  const actions = message.actions ?? [];
+  const actions = withManualAction(message.actions ?? [], message.manual);
   const isKnowledgeAnswer = !actions.some((a) => NON_KNOWLEDGE.includes(a.type));
   const sos = actions.some((a) => a.type === 'TRIGGER_SOS');
 
@@ -74,13 +76,21 @@ export const AgentMessage = memo(function AgentMessage({
           <Icon name="waveform" size={14} color={colors.onBrand} />
         </View>
         <AppText variant="label" tone="secondary" caps>
-          Jarvis
+          Cat
         </AppText>
         <AppText variant="small" tone="muted">
           {time}
         </AppText>
       </View>
       <AppText variant="body">{message.text}</AppText>
+      {message.imageUrl ? (
+        <RemoteImage
+          uri={message.imageUrl}
+          style={styles.manualImage}
+          label={`Manual picture${message.manual?.topic ? `: ${message.manual.topic}` : ''}`}
+          failedText="Manual picture unavailable on the Cat server"
+        />
+      ) : null}
       {message.caution ? <CautionCallout text={message.caution} /> : null}
       {message.citations?.length ? (
         <Citations citations={message.citations} />
@@ -117,6 +127,13 @@ const styles = StyleSheet.create({
   },
   retry: { paddingHorizontal: spacing.sm, minHeight: 32, justifyContent: 'center' },
   agentWrap: { gap: spacing.xs, paddingRight: spacing.sm },
+  manualImage: {
+    width: '100%',
+    height: 180,
+    marginTop: spacing.sm,
+    borderRadius: radius.md,
+    backgroundColor: '#FAFAF7',
+  },
   agentSos: { borderLeftWidth: 3, borderLeftColor: colors.danger, paddingLeft: spacing.md },
   agentHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginBottom: spacing.xs },
   agentMark: {

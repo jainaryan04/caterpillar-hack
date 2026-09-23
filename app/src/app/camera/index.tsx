@@ -41,7 +41,7 @@ export default function CameraScreen() {
             Ask about machinery
           </AppText>
           <AppText variant="body" tone="secondary">
-            Take a photo of a part, leak or warning light and ask Jarvis what it might be.
+            Take a photo of a part, leak or warning light and ask Cat what it might be.
           </AppText>
         </View>
 

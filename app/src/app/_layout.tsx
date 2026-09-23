@@ -13,6 +13,7 @@ import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { VoiceOverlay } from '@/components/agent/VoiceOverlay';
 import { AgentProvider } from '@/state/AgentProvider';
+import { SessionProvider, useSession } from '@/state/SessionProvider';
 import { colors } from '@/theme/tokens';
 
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -49,24 +50,38 @@ export default function RootLayout() {
   return (
     <SafeAreaProvider>
       <ThemeProvider value={navTheme}>
-        <AgentProvider>
-          <StatusBar style="light" />
-          <Stack
-            screenOptions={{
-              headerShown: false,
-              contentStyle: { backgroundColor: colors.canvas },
-              animation: 'slide_from_right',
-            }}
-          >
-            <Stack.Screen name="(tabs)" />
-            <Stack.Screen name="task/[id]" />
-            <Stack.Screen name="video/[id]" />
-            <Stack.Screen name="camera/index" options={{ animation: 'slide_from_bottom' }} />
-            <Stack.Screen name="camera/preview" />
-          </Stack>
-          <VoiceOverlay />
-        </AgentProvider>
+        <SessionProvider>
+          <AgentProvider>
+            <StatusBar style="light" />
+            <AppStack />
+            <VoiceOverlay />
+          </AgentProvider>
+        </SessionProvider>
       </ThemeProvider>
     </SafeAreaProvider>
+  );
+}
+
+/** Everything except the worker picker (index) needs a worker selected. */
+function AppStack() {
+  const { workerId } = useSession();
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        contentStyle: { backgroundColor: colors.canvas },
+        animation: 'slide_from_right',
+      }}
+    >
+      <Stack.Screen name="index" options={{ animation: 'fade' }} />
+      <Stack.Protected guard={!!workerId}>
+        <Stack.Screen name="(tabs)" options={{ animation: 'fade' }} />
+        <Stack.Screen name="task/[id]" />
+        <Stack.Screen name="video/[id]" />
+        <Stack.Screen name="camera/index" options={{ animation: 'slide_from_bottom' }} />
+        <Stack.Screen name="camera/preview" />
+        <Stack.Screen name="manual" options={{ animation: 'slide_from_bottom' }} />
+      </Stack.Protected>
+    </Stack>
   );
 }

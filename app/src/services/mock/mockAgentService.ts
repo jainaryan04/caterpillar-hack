@@ -2,7 +2,7 @@ import type { AgentContext, AgentResponse, SosStatus } from '@/types/agent';
 import { formatClock, makeId, nowIso } from '@/utils/format';
 import type { AgentService } from '../types';
 import { cannedAnswers, fallbackAnswer, mockHistory, videoContextAnswer, type CannedAnswer } from './data/agent';
-import { mockOperator } from './data/operations';
+import { mockSupervisorName } from './data/operations';
 import { clone, delay, mockConfig, simulateRequest } from './mockConfig';
 
 const sosListeners = new Set<(status: SosStatus | null) => void>();
@@ -31,7 +31,7 @@ function simulateSosLifecycle() {
     incidentId: `INC-${Math.floor(4000 + Math.random() * 900)}`,
     state: 'sent',
     sentAt,
-    supervisorName: mockOperator.supervisorName,
+    supervisorName: mockSupervisorName,
   };
   emitSos(base);
   setTimeout(() => emitSos({ ...base, state: 'acknowledged', note: 'On the way · ETA 4 min' }), 7000);
@@ -45,7 +45,7 @@ export const mockAgentService: AgentService = {
 
   async sendMessage(message, context) {
     await delay(mockConfig.agentLatencyMs);
-    if (mockConfig.failRequests) throw new Error('Jarvis is unavailable right now.');
+    if (mockConfig.failRequests) throw new Error('Cat is unavailable right now.');
     const answer = pickAnswer(message, context);
     const response: AgentResponse = {
       id: makeId('RSP'),
@@ -57,6 +57,14 @@ export const mockAgentService: AgentService = {
     };
     if (answer.actions.some((a) => a.type === 'TRIGGER_SOS')) simulateSosLifecycle();
     return response;
+  },
+
+  async reportVideoPause() {},
+
+  async clearScreen() {},
+
+  async openManual() {
+    return { opened: false as const, message: 'The mock assistant has no manual pages.' };
   },
 
   onSosStatus(listener) {

@@ -50,7 +50,7 @@ export const cannedAnswers: CannedAnswer[] = [
     actions: [{ type: 'OPEN_TASK', taskId: 'TASK-003' }],
   },
   {
-    keywords: ['inspect', 'pump', 'machine'],
+    keywords: ['inspect', 'pump', 'machine', 'engine', 'start'],
     text:
       'Start with isolation. Stop the pump, lock and tag it at MCC-3, and prove zero energy by trying to start it from the local panel.\n\nThen work from the outside in: casing and flanges, gland seal, drive belts and guard. Record discharge pressure and bearing temperature after restart.',
     citations: [
@@ -60,7 +60,7 @@ export const cannedAnswers: CannedAnswer[] = [
     actions: [{ type: 'OPEN_VIDEO', videoId: 'VID-101' }],
   },
   {
-    keywords: ['lockout', 'isolate', 'isolation', 'lock out', 'tagout'],
+    keywords: ['lockout', 'isolate', 'isolation', 'lock out', 'tagout', 'seat belt'],
     text:
       'Isolate, lock, tag, then prove it. Use your own lock on the isolation point, not a shared one. Try to start the equipment from its local control before you begin. It must not move.',
     citations: [{ source: 'Lockout / Tagout Fundamentals', locator: 'Prove zero energy · 06:50' }],
@@ -125,9 +125,10 @@ export const videoContextAnswer = (videoTitle: string, chapter: string, time: st
 
 /** What the mock speech engine "hears". Picked based on context. */
 export const mockVoiceQuestions = {
-  video: 'What should I be looking for at this step?',
-  task: 'How do I inspect this machine?',
-  general: 'How do I check the hydraulic pressure?',
+  // "this" makes the Cat agent answer from the paused frame.
+  video: 'what does this do?',
+  task: 'how do I start the engine safely?',
+  general: 'how do I wear the seat belt?',
 };
 
 export const mockHistory: AgentMessage[] = [

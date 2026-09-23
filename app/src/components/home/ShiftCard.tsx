@@ -6,23 +6,35 @@ import { AppText } from '../ui/AppText';
 import { Card } from '../ui/Card';
 import { Icon } from '../ui/Icon';
 
-export function ShiftCard({ shift, machine, tasks }: { shift: Shift; machine: string; tasks: Task[] }) {
+export function ShiftCard({
+  shift,
+  subtitle,
+  tasks,
+  progressLabel,
+}: {
+  shift?: Shift;
+  subtitle: string;
+  tasks: Task[];
+  progressLabel: string;
+}) {
   return (
     <Card style={styles.card}>
       <View style={styles.row}>
         <Icon name="calendar-clock" size={20} color={colors.textSecondary} />
         <View style={{ flex: 1 }}>
-          <AppText variant="bodyStrong">{shift.name}</AppText>
-          <AppText variant="small" tone="muted">
-            {machine}
+          <AppText variant="bodyStrong">{shift ? `${shift.name} · ${shift.dayLabel}` : 'No scheduled times'}</AppText>
+          <AppText variant="small" tone="muted" numberOfLines={1}>
+            {subtitle}
           </AppText>
         </View>
-        <AppText variant="mono" accessibilityLabel={`${shift.start} to ${shift.end}`}>
-          {shift.start} — {shift.end}
-        </AppText>
+        {shift ? (
+          <AppText variant="mono" accessibilityLabel={`${shift.start} to ${shift.end}`}>
+            {shift.start} — {shift.end}
+          </AppText>
+        ) : null}
       </View>
       <View style={styles.divider} />
-      <TaskProgress tasks={tasks} />
+      <TaskProgress tasks={tasks} label={progressLabel} />
     </Card>
   );
 }

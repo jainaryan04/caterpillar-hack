@@ -2,7 +2,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { CameraPreview } from '@/components/camera/CameraPreview';
+import { CameraPreview, type PhotoMark } from '@/components/camera/CameraPreview';
 import { ImageAnalysisResult } from '@/components/camera/ImageAnalysisResult';
 import { ActionButton } from '@/components/ui/ActionButton';
 import { AppText } from '@/components/ui/AppText';
@@ -15,7 +15,7 @@ import type { AgentContext, ImageAnalysis } from '@/types/agent';
 import { colors, fonts, radius, spacing, touch } from '@/theme/tokens';
 import { makeId, nowIso } from '@/utils/format';
 
-const QUICK_QUESTIONS = ['What is happening here?', 'Is this a leak?', 'Is this part damaged?', 'Is it safe to run?'];
+const QUICK_QUESTIONS = ['What does this do?', 'What is this part?', 'Is this damaged?', 'Is it safe to run?'];
 
 type Phase =
   | { kind: 'compose' }
@@ -27,6 +27,7 @@ export default function CameraPreviewScreen() {
   const { uri, taskId } = useLocalSearchParams<{ uri: string; taskId?: string }>();
   const [question, setQuestion] = useState('');
   const [phase, setPhase] = useState<Phase>({ kind: 'compose' });
+  const [mark, setMark] = useState<PhotoMark>();
   const { appendMessages } = useAgent();
 
   if (!uri) {
@@ -39,12 +40,18 @@ export default function CameraPreviewScreen() {
   }
 
   const context: AgentContext = { imageUri: uri, taskId };
-  const asked = question.trim() || 'What is happening here?';
+  const asked = question.trim() || (mark ? 'What does this do?' : 'What is this?');
 
   const analyze = async () => {
     setPhase({ kind: 'analyzing' });
     try {
-      const analysis = await mediaService.analyzeMachineryPhoto({ imageUri: uri, question: asked, context });
+      const analysis = await mediaService.analyzeMachineryPhoto({
+        imageUri: uri,
+        question: asked,
+        context,
+        circle: mark?.circle,
+        tap: mark?.tap,
+      });
       setPhase({ kind: 'result', analysis, question: asked });
     } catch (e) {
       setPhase({ kind: 'error', message: e instanceof Error ? e.message : 'Image analysis failed.' });
@@ -62,8 +69,10 @@ export default function CameraPreviewScreen() {
         createdAt: analysis.createdAt,
         mode: 'image',
         status: 'sent',
-        citations: [],
-        actions: [{ type: 'CONTACT_SUPERVISOR' }],
+        citations: analysis.citations ?? [],
+        actions: [],
+        imageUrl: analysis.manualCloseupUrl,
+        manual: analysis.manual,
       },
     ]);
     router.dismissAll();
@@ -78,10 +87,25 @@ export default function CameraPreviewScreen() {
           <AppText variant="label" tone="secondary" caps accessibilityRole="header">
             Ask about machinery
           </AppText>
-          <CameraPreview uri={uri} analyzing={phase.kind === 'analyzing'} />
+          <CameraPreview
+            uri={uri}
+            analyzing={phase.kind === 'analyzing'}
+            mark={mark}
+            onMarkChange={phase.kind === 'compose' ? setMark : undefined}
+          />
 
           {phase.kind === 'compose' ? (
             <>
+              <View style={styles.markRow}>
+                <AppText variant="small" tone={mark ? 'primary' : 'secondary'} style={{ flex: 1 }}>
+                  {mark?.circle
+                    ? 'Part circled.'
+                    : mark?.tap
+                      ? 'Point marked.'
+                      : 'Circle or tap the part you mean (optional).'}
+                </AppText>
+                {mark ? <Chip label="Clear" icon="close" onPress={() => setMark(undefined)} /> : null}
+              </View>
               <View style={{ gap: spacing.sm }}>
                 <AppText variant="bodyStrong">Your question (optional)</AppText>
                 <TextInput
@@ -100,7 +124,7 @@ export default function CameraPreviewScreen() {
                   ))}
                 </View>
               </View>
-              <ActionButton label="Ask Jarvis" icon="image-search-outline" onPress={analyze} />
+              <ActionButton label="Ask Cat" icon="image-search-outline" onPress={analyze} />
               <ActionButton label="Retake photo" icon="camera-retake-outline" variant="secondary" onPress={() => router.back()} />
             </>
           ) : null}
@@ -156,4 +180,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
   },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  markRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: -spacing.sm },
 });

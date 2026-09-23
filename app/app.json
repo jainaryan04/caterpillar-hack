@@ -17,7 +17,18 @@
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
       "predictiveBackGestureEnabled": false,
-      "package": "com.catfleetops.operator"
+      "package": "com.catfleetops.operator",
+      "permissions": [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.MODIFY_AUDIO_SETTINGS",
+        "android.permission.ACCESS_NETWORK_STATE",
+        "android.permission.INTERNET",
+        "android.permission.BLUETOOTH",
+        "android.permission.WAKE_LOCK",
+        "android.permission.FOREGROUND_SERVICE",
+        "android.permission.FOREGROUND_SERVICE_MICROPHONE",
+        "android.permission.POST_NOTIFICATIONS"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -38,10 +49,20 @@
         "expo-image-picker",
         {
           "photosPermission": "Allow Cat Operator to choose photos of machinery so you can ask the assistant about them.",
-          "cameraPermission": "Allow Cat Operator to photograph machinery so you can ask the assistant about it.",
-          "microphonePermission": false
+          "cameraPermission": "Allow Cat Operator to photograph machinery so you can ask the assistant about it."
         }
-      ]
+      ],
+      "expo-video",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "usesCleartextTraffic": true,
+            "minSdkVersion": 24
+          }
+        }
+      ],
+      "@daily-co/config-plugin-rn-daily-js"
     ],
     "scheme": "catoperator",
     "backgroundColor": "#0B0B0B",

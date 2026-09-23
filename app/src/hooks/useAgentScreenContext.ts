@@ -4,8 +4,8 @@ import { useAgent } from '@/state/AgentProvider';
 import type { AgentContext } from '@/types/agent';
 
 /**
- * Tells Jarvis what this screen is showing while it is focused, so a
- * wake-word question ("Jarvis, what's this step?") carries that context.
+ * Tells Cat what this screen is showing while it is focused, so a
+ * wake-word question ("Hey Cat, what's this step?") carries that context.
  */
 export function useAgentScreenContext(context: AgentContext | undefined) {
   const { setScreenContext } = useAgent();

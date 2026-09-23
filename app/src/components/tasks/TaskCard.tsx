@@ -3,6 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { Task, TaskStatus } from '@/types/domain';
 import { colors, radius, spacing } from '@/theme/tokens';
 import { formatMinutes } from '@/utils/format';
+import { dayLabel } from '@/utils/schedule';
 import { AppText } from '../ui/AppText';
 import { Icon } from '../ui/Icon';
 import { taskStatusStyle } from '../ui/StatusBadge';
@@ -20,6 +21,7 @@ export const TaskCard = memo(function TaskCard({
   const s = taskStatusStyle[status];
   const isCurrent = status === 'next' || status === 'in_progress';
   const done = status === 'completed';
+  const day = task.scheduledStartAt ? dayLabel(new Date(task.scheduledStartAt)) : 'Today';
   return (
     <Pressable
       accessibilityRole="button"
@@ -56,6 +58,11 @@ export const TaskCard = memo(function TaskCard({
         <AppText variant="small" tone="muted" style={{ fontSize: 13 }}>
           {done ? 'done' : formatMinutes(task.estimatedMinutes)}
         </AppText>
+        {!done && day !== 'Today' ? (
+          <AppText variant="small" tone="muted" style={{ fontSize: 12 }}>
+            {day}
+          </AppText>
+        ) : null}
       </View>
     </Pressable>
   );

@@ -1,5 +1,6 @@
+import { VideoView, type VideoPlayer as ExpoVideoPlayer } from 'expo-video';
 import { useState } from 'react';
-import { Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import type { Playback } from '@/hooks/useMockPlayback';
 import type { MachineType, VideoChapter } from '@/types/domain';
 import { colors, radius, spacing } from '@/theme/tokens';
@@ -19,6 +20,8 @@ export interface VideoPlayerProps {
   chapters: VideoChapter[];
   machineType: MachineType;
   playback: Playback;
+  /** Real stream player; without it a placeholder frame is shown. */
+  player?: ExpoVideoPlayer;
 }
 
 export function chapterAt(chapters: VideoChapter[], position: number): { chapter?: VideoChapter; index: number } {
@@ -33,7 +36,7 @@ export function chapterAt(chapters: VideoChapter[], position: number): { chapter
  * Training video player. Rendering is driven entirely by `playback`, so the
  * simulated clock can be swapped for a real player without touching the UI.
  */
-export function VideoPlayer({ title, durationSeconds, videoUrl, chapters, machineType, playback }: VideoPlayerProps) {
+export function VideoPlayer({ title, durationSeconds, videoUrl, chapters, machineType, playback, player }: VideoPlayerProps) {
   const [trackWidth, setTrackWidth] = useState(0);
   const { status, position, toggle, seek } = playback;
   const { chapter, index } = chapterAt(chapters, position);
@@ -51,18 +54,33 @@ export function VideoPlayer({ title, durationSeconds, videoUrl, chapters, machin
         accessibilityLabel={playing ? `Pause ${title}` : `Play ${title}`}
         style={styles.frame}
       >
-        <View style={styles.frameTop}>
-          <AppText variant="label" tone="muted" caps style={{ fontSize: 10 }}>
-            {videoUrl ? 'Training video' : 'Preview · stream not connected'}
-          </AppText>
-        </View>
-        <Icon name={machineIcon[machineType]} size={72} color={colors.borderStrong} />
-        {chapter ? (
+        {player ? (
+          <VideoView player={player} style={StyleSheet.absoluteFill} nativeControls={false} contentFit="contain" />
+        ) : (
+          <>
+            <View style={styles.frameTop}>
+              <AppText variant="label" tone="muted" caps style={{ fontSize: 10 }}>
+                {videoUrl ? 'Training video' : 'Preview · stream not connected'}
+              </AppText>
+            </View>
+            <Icon name={machineIcon[machineType]} size={72} color={colors.borderStrong} />
+          </>
+        )}
+        {playback.loadState === 'loading' ? <ActivityIndicator style={styles.spinner} color={colors.brand} size="large" /> : null}
+        {playback.loadState === 'error' ? (
+          <View style={styles.errorBox}>
+            <Icon name="alert-outline" size={20} color={colors.warning} />
+            <AppText variant="small" tone="warning" style={{ textAlign: 'center' }}>
+              {`Video can't be played. ${playback.error ?? 'Check the training server connection.'}`}
+            </AppText>
+          </View>
+        ) : null}
+        {!player && chapter ? (
           <AppText variant="small" tone="secondary" style={styles.frameChapter} numberOfLines={1}>
             {chapter.title}
           </AppText>
         ) : null}
-        {!playing ? (
+        {!playing && playback.loadState !== 'loading' && playback.loadState !== 'error' ? (
           <View style={styles.bigPlay}>
             <Icon name={status === 'ended' ? 'replay' : 'play'} size={40} color={colors.onBrand} />
           </View>
@@ -129,6 +147,17 @@ const styles = StyleSheet.create({
   },
   frameTop: { position: 'absolute', top: spacing.sm, left: spacing.md },
   frameChapter: { position: 'absolute', bottom: spacing.sm, left: spacing.md, right: spacing.md },
+  spinner: { position: 'absolute' },
+  errorBox: {
+    position: 'absolute',
+    left: spacing.lg,
+    right: spacing.lg,
+    alignItems: 'center',
+    gap: spacing.xs,
+    padding: spacing.md,
+    borderRadius: radius.md,
+    backgroundColor: 'rgba(0,0,0,0.8)',
+  },
   bigPlay: {
     position: 'absolute',
     width: 76,

@@ -13,8 +13,10 @@ import { SectionHeader } from '@/components/ui/SectionHeader';
 import { StateView } from '@/components/ui/StateView';
 import { useAgentScreenContext } from '@/hooks/useAgentScreenContext';
 import { useAsync } from '@/hooks/useAsync';
-import { useMockPlayback } from '@/hooks/useMockPlayback';
-import { videoService } from '@/services';
+import { useMockPlayback, type Playback } from '@/hooks/useMockPlayback';
+import { useStreamPlayback } from '@/hooks/useStreamPlayback';
+import type { VideoPlayer as ExpoVideoPlayer } from 'expo-video';
+import { agentService, videoService } from '@/services';
 import { useAgent } from '@/state/AgentProvider';
 import { agentActionBus } from '@/state/agentActionBus';
 import type { AgentContext } from '@/types/agent';
@@ -40,11 +42,33 @@ export default function VideoScreen() {
   }
 
   const start = t !== undefined ? Number(t) : video.completed ? 0 : video.progressSeconds;
-  return <VideoContent video={video} startAt={Number.isFinite(start) ? start : 0} taskId={taskId} />;
+  const props = { video, startAt: Number.isFinite(start) ? start : 0, taskId };
+  return video.videoUrl ? <StreamVideo {...props} url={video.videoUrl} /> : <SimulatedVideo {...props} />;
 }
 
-function VideoContent({ video, startAt, taskId }: { video: TrainingVideo; startAt: number; taskId?: string }) {
-  const playback = useMockPlayback(video.durationSeconds, startAt);
+interface ContentProps {
+  video: TrainingVideo;
+  startAt: number;
+  taskId?: string;
+}
+
+function StreamVideo({ url, ...props }: ContentProps & { url: string }) {
+  const { player, ...playback } = useStreamPlayback(url, props.video.durationSeconds, props.startAt);
+  return <VideoContent {...props} playback={playback} player={player} />;
+}
+
+/** No stream yet (mock data): a simulated clock drives the same UI. */
+function SimulatedVideo(props: ContentProps) {
+  const playback = useMockPlayback(props.video.durationSeconds, props.startAt);
+  return <VideoContent {...props} playback={playback} />;
+}
+
+function VideoContent({
+  video,
+  taskId,
+  playback,
+  player,
+}: ContentProps & { playback: Playback; player?: ExpoVideoPlayer }) {
   const { startVoice, overlayVisible, setChatContext } = useAgent();
   const { chapter, index } = chapterAt(video.chapters, playback.position);
   const focused = useRef(false);
@@ -68,7 +92,7 @@ function VideoContent({ video, startAt, taskId }: { video: TrainingVideo; startA
     }, []),
   );
 
-  // Talking to Jarvis pauses the video, however the overlay was opened.
+  // Talking to Cat pauses the video, however the overlay was opened.
   const { pause, play } = playback;
   useEffect(() => {
     if (overlayVisible) pause();
@@ -90,10 +114,22 @@ function VideoContent({ video, startAt, taskId }: { video: TrainingVideo; startA
   useEffect(() => {
     positionRef.current = playback.position;
   }, [playback.position]);
+  const duration = video.durationSeconds;
+  const hasPlayed = useRef(false);
   useEffect(() => {
-    if (playback.status !== 'playing') videoService.saveProgress(video.id, positionRef.current);
-  }, [playback.status, video.id]);
-  useEffect(() => () => void videoService.saveProgress(video.id, positionRef.current), [video.id]);
+    if (playback.status !== 'playing') {
+      videoService.saveProgress(video.id, positionRef.current, duration);
+      // So "Hey Cat, what does this do?" means this frame (not on first load).
+      if (hasPlayed.current && playback.status === 'paused') {
+        agentService.reportVideoPause(video.id, positionRef.current).catch(() => undefined);
+      }
+    } else {
+      hasPlayed.current = true;
+      // Playing again: "this" no longer means the paused frame.
+      agentService.clearScreen().catch(() => undefined);
+    }
+  }, [playback.status, video.id, duration]);
+  useEffect(() => () => void videoService.saveProgress(video.id, positionRef.current, duration), [video.id, duration]);
 
   const paused = playback.status !== 'playing';
   const cat = categoryMeta[video.category];
@@ -111,6 +147,7 @@ function VideoContent({ video, startAt, taskId }: { video: TrainingVideo; startA
           chapters={video.chapters}
           machineType={video.machineType}
           playback={playback}
+          player={player}
         />
 
         <View style={styles.body}>
@@ -127,7 +164,7 @@ function VideoContent({ video, startAt, taskId }: { video: TrainingVideo; startA
                 </AppText>
               </View>
               <ActionButton
-                label="Ask Jarvis about this"
+                label="Ask Cat about this"
                 icon="microphone"
                 onPress={() => startVoice(context)}
                 accessibilityHint="Opens the voice assistant with this moment of the video as context"

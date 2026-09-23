@@ -1,61 +1,37 @@
 import { router } from 'expo-router';
-import { useEffect, useState } from 'react';
-import { Modal, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Modal, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useAgent } from '@/state/AgentProvider';
 import type { AgentAction, VoicePhase } from '@/types/agent';
-import { spacing } from '@/theme/tokens';
+import { radius, spacing } from '@/theme/tokens';
 import { ActionButton } from '../ui/ActionButton';
 import { AppText } from '../ui/AppText';
+import { RemoteImage } from '../ui/RemoteImage';
 import { AgentActions } from './AgentActions';
-import { CautionCallout } from './CautionCallout';
-import { Citations } from './Citations';
+import { withManualAction } from './agentActionMeta';
+import { CatOrb } from './CatOrb';
 import { ContextTag } from './ContextTag';
-import { JarvisOrb } from './JarvisOrb';
+import { VoiceStatusPill } from './VoiceStatusPill';
 import { Waveform } from './Waveform';
 
-const phaseCopy: Record<VoicePhase, { label: string; status: string }> = {
-  idle: { label: 'Jarvis', status: 'Say “Jarvis” to talk' },
-  listening: { label: 'Listening', status: 'Jarvis is listening…' },
-  thinking: { label: 'Thinking', status: 'Working on an answer…' },
-  responding: { label: 'Responding', status: 'Jarvis' },
-  error: { label: 'Not available', status: '' },
+const phaseLabel: Record<VoicePhase, string> = {
+  idle: 'Cat',
+  listening: 'Listening',
+  thinking: 'Thinking',
+  responding: 'Cat is speaking',
+  done: 'Answered',
+  error: 'Not available',
 };
 
-const REVEAL_MS_PER_WORD = 55;
-
 /**
- * Full-screen voice interaction. Mounted once at the root so the wake word,
- * the mic button and "Ask Jarvis about this" all open the same experience on
- * top of whatever screen the operator is on.
+ * Full-screen voice interaction, mounted once at the root so "Hey Cat", the
+ * mic buttons and "Ask Cat about this" all open it over whatever screen the
+ * operator is on. Driven by the live voice session (see useVoiceController).
  */
 export function VoiceOverlay() {
-  const { voice, overlayVisible, cancelVoice, dismissVoice, finishSpeaking, startVoice, runAction, setChatContext } =
-    useAgent();
+  const { voice, overlayVisible, cancelVoice, dismissVoice, startVoice, runAction, setChatContext, wakePhrase } = useAgent();
   const insets = useSafeAreaInsets();
-  // Words revealed so far, tied to the response they belong to.
-  const [reveal, setReveal] = useState<{ id?: string; count: number }>({ count: 0 });
-
-  const words = voice.response?.text.split(' ') ?? [];
-  const revealed = reveal.id === voice.response?.id ? reveal.count : 0;
-  const revealDone = voice.phase === 'responding' && revealed >= words.length;
-
-  // Reveal the answer progressively, standing in for text-to-speech pacing.
-  useEffect(() => {
-    const response = voice.response;
-    if (voice.phase !== 'responding' || !response) return;
-    const total = response.text.split(' ').length;
-    let count = 0;
-    const timer = setInterval(() => {
-      count += 1;
-      setReveal({ id: response.id, count });
-      if (count >= total) clearInterval(timer);
-    }, REVEAL_MS_PER_WORD);
-    return () => clearInterval(timer);
-  }, [voice.phase, voice.response]);
-
-  const phase = voice.phase;
-  const copy = phaseCopy[phase];
+  const { phase, response } = voice;
   const fromVideo = !!voice.context?.videoId;
 
   const runFromOverlay = (action: AgentAction) => {
@@ -69,6 +45,8 @@ export function VoiceOverlay() {
     router.navigate('/agent');
   };
 
+  const waveMode = phase === 'listening' ? 'listening' : phase === 'thinking' ? 'thinking' : phase === 'responding' ? 'responding' : 'idle';
+
   return (
     <Modal
       visible={overlayVisible}
@@ -78,108 +56,103 @@ export function VoiceOverlay() {
       navigationBarTranslucent
       onRequestClose={cancelVoice}
     >
-      <View style={[styles.screen, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.lg }]}>
+      <View style={[styles.screen, { paddingTop: insets.top + spacing.md, paddingBottom: insets.bottom + spacing.lg }]}>
         <View style={styles.top}>
-          {voice.context ? <ContextTag context={voice.context} /> : <View />}
+          <VoiceStatusPill />
+          {voice.context ? <ContextTag context={voice.context} /> : null}
         </View>
 
         <View style={styles.center}>
-          <Pressable
-            onPress={phase === 'listening' ? finishSpeaking : undefined}
-            accessibilityRole={phase === 'listening' ? 'button' : undefined}
-            accessibilityLabel={phase === 'listening' ? 'Done speaking' : undefined}
-            disabled={phase !== 'listening'}
-          >
-            <JarvisOrb phase={phase} size={phase === 'responding' ? 96 : 136} />
-          </Pressable>
-
+          <CatOrb phase={phase} size={phase === 'responding' || phase === 'done' ? 88 : 128} />
           <AppText
             variant="label"
             caps
-            tone={phase === 'listening' ? 'brand' : phase === 'error' ? 'warning' : 'secondary'}
+            tone={phase === 'listening' ? 'brand' : phase === 'error' ? 'warning' : phase === 'done' ? 'success' : 'secondary'}
             style={styles.phaseLabel}
             accessibilityLiveRegion="assertive"
           >
-            {copy.label}
+            {phaseLabel[phase]}
           </AppText>
-
           <View style={styles.wave}>
-            <Waveform
-              mode={
-                phase === 'listening'
-                  ? 'listening'
-                  : phase === 'thinking'
-                    ? 'thinking'
-                    : phase === 'responding' && !revealDone
-                      ? 'responding'
-                      : 'idle'
-              }
-              height={phase === 'responding' ? 40 : 72}
-            />
+            <Waveform mode={waveMode} height={phase === 'responding' || phase === 'done' ? 36 : 64} />
           </View>
 
           {phase === 'listening' || phase === 'thinking' ? (
             <View style={styles.transcriptBox}>
               {voice.transcript ? (
-                <AppText variant="title" style={styles.transcript}>
+                <AppText variant="title" style={styles.center_text}>
                   “{voice.transcript}”
                 </AppText>
               ) : (
-                <AppText variant="body" tone="muted" style={styles.transcript}>
-                  {copy.status}
+                <AppText variant="heading" tone="secondary" style={styles.center_text}>
+                  Say “{wakePhrase}”, then your question
                 </AppText>
               )}
+              {voice.status ? (
+                <AppText variant="small" tone="brand" style={styles.center_text}>
+                  {voice.status}
+                </AppText>
+              ) : null}
+              {voice.hint ? (
+                <AppText variant="small" tone="warning" style={styles.center_text}>
+                  {voice.hint}
+                </AppText>
+              ) : null}
             </View>
           ) : null}
 
-          {phase === 'responding' && voice.response ? (
+          {(phase === 'responding' || phase === 'done') ? (
             <ScrollView style={styles.answer} contentContainerStyle={{ paddingBottom: spacing.md }}>
-              <AppText variant="small" tone="muted" style={{ marginBottom: spacing.sm }}>
-                “{voice.transcript}”
-              </AppText>
-              <AppText variant="body" style={{ fontSize: 18, lineHeight: 27 }}>
-                {words.slice(0, revealed).join(' ')}
-              </AppText>
-              {revealDone ? (
-                <>
-                  {voice.response.caution ? <CautionCallout text={voice.response.caution} /> : null}
-                  <Citations citations={voice.response.citations} />
-                  <AgentActions
-                    actions={voice.response.actions}
-                    onRun={runFromOverlay}
-                    exclude={fromVideo ? ['RESUME_VIDEO'] : []}
-                  />
-                </>
+              {voice.transcript ? (
+                <AppText variant="small" tone="muted" style={{ marginBottom: spacing.sm }}>
+                  “{voice.transcript}”
+                </AppText>
+              ) : null}
+              {voice.status && !response?.text ? (
+                <AppText variant="body" tone="brand">
+                  {voice.status}
+                </AppText>
+              ) : null}
+              {response?.text ? (
+                <AppText variant="body" style={{ fontSize: 18, lineHeight: 27 }}>
+                  {response.text}
+                </AppText>
+              ) : null}
+              {response?.imageUrl ? (
+                <RemoteImage
+                  uri={response.imageUrl}
+                  style={styles.manualImage}
+                  label="Picture from the manual"
+                  failedText="Manual picture unavailable on the Cat server"
+                />
+              ) : null}
+              {voice.pages ? (
+                <AppText variant="small" tone="brand" style={{ marginTop: spacing.sm }}>
+                  Opening manual page {voice.pages.page}…
+                </AppText>
+              ) : null}
+              {phase === 'done' && response ? (
+                <AgentActions
+                  actions={withManualAction(response.actions, response.manual)}
+                  onRun={runFromOverlay}
+                  exclude={fromVideo ? ['RESUME_VIDEO'] : []}
+                />
               ) : null}
             </ScrollView>
           ) : null}
 
           {phase === 'error' ? (
-            <AppText variant="body" tone="secondary" style={styles.transcript}>
-              {voice.error ?? 'Jarvis is unavailable right now.'} Your question was not sent.
+            <AppText variant="body" tone="secondary" style={styles.center_text}>
+              {voice.error ?? 'Cat is unavailable right now.'}
             </AppText>
           ) : null}
         </View>
 
         <View style={styles.actions}>
-          {phase === 'listening' ? (
-            <View style={styles.row}>
-              <ActionButton label="Cancel" icon="close" variant="secondary" onPress={cancelVoice} style={styles.flex} />
-              <ActionButton label="Done" icon="check" onPress={finishSpeaking} style={styles.flex} />
-            </View>
-          ) : null}
-          {phase === 'thinking' ? (
-            <ActionButton label="Cancel" icon="close" variant="secondary" onPress={cancelVoice} />
-          ) : null}
-          {phase === 'responding' ? (
+          {phase === 'done' ? (
             <>
               {fromVideo ? (
-                <ActionButton
-                  label="Resume video"
-                  icon="play"
-                  onPress={() => runFromOverlay({ type: 'RESUME_VIDEO' })}
-                  disabled={!revealDone}
-                />
+                <ActionButton label="Resume video" icon="play" onPress={() => runFromOverlay({ type: 'RESUME_VIDEO' })} />
               ) : null}
               <View style={styles.row}>
                 <ActionButton
@@ -193,13 +166,20 @@ export function VoiceOverlay() {
               </View>
               <ActionButton label="Close" variant="ghost" size="md" onPress={dismissVoice} />
             </>
-          ) : null}
-          {phase === 'error' ? (
+          ) : phase === 'error' ? (
             <View style={styles.row}>
               <ActionButton label="Close" variant="secondary" onPress={dismissVoice} style={styles.flex} />
               <ActionButton label="Try again" icon="microphone" onPress={() => startVoice(voice.context)} style={styles.flex} />
             </View>
-          ) : null}
+          ) : (
+            <ActionButton
+              label={phase === 'responding' ? 'Hide' : 'Cancel'}
+              icon="close"
+              variant="secondary"
+              onPress={cancelVoice}
+              accessibilityHint={phase === 'responding' ? 'Closes this view; Cat finishes speaking' : undefined}
+            />
+          )}
         </View>
       </View>
     </Modal>
@@ -208,13 +188,14 @@ export function VoiceOverlay() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: 'rgba(8,8,8,0.97)', paddingHorizontal: spacing.xl },
-  top: { minHeight: 36, alignItems: 'center' },
+  top: { minHeight: 36, alignItems: 'center', gap: spacing.sm },
   center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md },
+  center_text: { textAlign: 'center', maxWidth: 340 },
   phaseLabel: { fontSize: 15, letterSpacing: 4, marginTop: spacing.sm },
   wave: { alignSelf: 'stretch', alignItems: 'center', marginVertical: spacing.sm },
-  transcriptBox: { minHeight: 96, justifyContent: 'center' },
-  transcript: { textAlign: 'center', maxWidth: 340 },
-  answer: { alignSelf: 'stretch', maxHeight: '52%', flexGrow: 0 },
+  transcriptBox: { minHeight: 110, justifyContent: 'center', alignItems: 'center', gap: spacing.sm },
+  answer: { alignSelf: 'stretch', maxHeight: '55%', flexGrow: 0 },
+  manualImage: { width: '100%', height: 180, marginTop: spacing.md, borderRadius: radius.md, backgroundColor: '#FAFAF7' },
   actions: { gap: spacing.sm },
   row: { flexDirection: 'row', gap: spacing.sm },
   flex: { flex: 1 },

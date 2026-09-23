@@ -1,14 +1,16 @@
 import type { OperatorService } from '../types';
-import { mockOperator, mockShift } from './data/operations';
-import { clone, simulateRequest } from './mockConfig';
+import { mockOperators } from './data/operations';
+import { clone, MockNetworkError, simulateRequest } from './mockConfig';
 
 export const mockOperatorService: OperatorService = {
-  async getCurrentOperator() {
+  async listOperators() {
     await simulateRequest();
-    return clone(mockOperator);
+    return clone(mockOperators);
   },
-  async getCurrentShift() {
+  async getOperator(workerId) {
     await simulateRequest();
-    return clone(mockShift);
+    const found = mockOperators.find((o) => o.id === workerId);
+    if (!found) throw new MockNetworkError(`Worker ${workerId} not found`);
+    return clone(found);
   },
 };

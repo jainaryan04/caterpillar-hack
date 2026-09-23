@@ -3,7 +3,7 @@ import { Animated, StyleSheet, View } from 'react-native';
 import { colors, spacing } from '@/theme/tokens';
 import { AppText } from '../ui/AppText';
 
-/** Inline "Jarvis is thinking" row for the chat list. */
+/** Inline "Cat is thinking" row for the chat list. */
 export function ThinkingIndicator() {
   const dots = useState(() => [0, 1, 2].map(() => new Animated.Value(0.3)))[0];
 
@@ -24,7 +24,7 @@ export function ThinkingIndicator() {
   }, [dots]);
 
   return (
-    <View style={styles.row} accessibilityLiveRegion="polite" accessibilityLabel="Jarvis is thinking">
+    <View style={styles.row} accessibilityLiveRegion="polite" accessibilityLabel="Cat is thinking">
       <View style={styles.dots}>
         {dots.map((d, i) => (
           <Animated.View key={i} style={[styles.dot, { opacity: d }]} />

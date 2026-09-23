@@ -22,10 +22,10 @@ const modeColor: Record<WaveformMode, string> = {
 };
 
 /**
- * Audio waveform for the Jarvis overlay.
- * - listening: driven by `voiceService.onAmplitude` (mock levels for now)
+ * Audio waveform for the voice overlay.
+ * - listening: the operator's mic level (voice session 'local' levels)
  * - thinking: a slow pulse travelling across flat bars
- * - responding: synthetic speech pattern while the answer is read out
+ * - responding: Cat's voice level ('remote' levels)
  */
 export function Waveform({ mode, height = 72 }: { mode: WaveformMode; height?: number }) {
   const bars = useMemo(() => Array.from({ length: BAR_COUNT }, () => new Animated.Value(FLOOR)), []);
@@ -49,10 +49,19 @@ export function Waveform({ mode, height = 72 }: { mode: WaveformMode; height?: n
       return;
     }
 
-    if (mode === 'listening') {
-      return voiceService.onAmplitude((level) => {
+    // Real levels: the operator's mic while listening, Cat's voice while responding.
+    if (mode === 'listening' || mode === 'responding') {
+      const source = mode === 'listening' ? 'local' : 'remote';
+      let last = 0;
+      return voiceService.subscribe((e) => {
+        if (e.type !== 'level' || e.source !== source) return;
+        const now = Date.now();
+        if (now - last < 70) return; // ~14 fps is plenty for bars
+        last = now;
+        // WebRTC levels are small for normal speech; lift them into view.
+        const level = Math.min(1, Math.sqrt(e.level) * 1.4);
         animateTo(
-          envelope.map((e) => level * e * (0.55 + Math.random() * 0.45)),
+          envelope.map((env) => level * env * (0.55 + Math.random() * 0.45)),
           90,
         );
       });
@@ -60,20 +69,11 @@ export function Waveform({ mode, height = 72 }: { mode: WaveformMode; height?: n
 
     const interval = setInterval(() => {
       tick.current += 1;
-      const t = tick.current;
-      if (mode === 'thinking') {
-        const pos = (t % (BAR_COUNT + 10)) - 5;
-        animateTo(
-          envelope.map((_, i) => 0.08 + 0.22 * Math.exp(-((i - pos) ** 2) / 6)),
-          120,
-        );
-      } else {
-        const loud = 0.45 + 0.35 * Math.abs(Math.sin(t * 0.45));
-        animateTo(
-          envelope.map((e, i) => loud * e * (0.6 + 0.4 * Math.abs(Math.sin(t * 0.9 + i * 0.5)))),
-          110,
-        );
-      }
+      const pos = (tick.current % (BAR_COUNT + 10)) - 5;
+      animateTo(
+        envelope.map((_, i) => 0.08 + 0.22 * Math.exp(-((i - pos) ** 2) / 6)),
+        120,
+      );
     }, 110);
     return () => clearInterval(interval);
   }, [bars, mode]);

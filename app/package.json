@@ -3,20 +3,32 @@
   "version": "1.0.0",
   "main": "expo-router/entry",
   "dependencies": {
+    "@daily-co/config-plugin-rn-daily-js": "^0.0.12",
+    "@daily-co/react-native-daily-js": "^0.87.1",
+    "@daily-co/react-native-webrtc": "^124.0.6-daily.2",
     "@expo-google-fonts/ibm-plex-mono": "^0.4.1",
     "@expo-google-fonts/ibm-plex-sans": "^0.4.1",
     "@expo/vector-icons": "^15.0.2",
+    "@pipecat-ai/client-js": "^1.13.1",
+    "@pipecat-ai/react-native-daily-media-manager": "^0.0.2",
+    "@pipecat-ai/react-native-small-webrtc-transport": "^1.8.0",
+    "@react-native-async-storage/async-storage": "^3.1.1",
     "eslint-config-expo": "~57.0.2",
     "expo": "~57.0.24",
+    "expo-build-properties": "~57.0.21",
     "expo-constants": "~57.0.19",
+    "expo-dev-client": "~57.0.19",
     "expo-font": "~57.0.4",
     "expo-image-picker": "~57.0.19",
     "expo-linking": "~57.0.10",
     "expo-router": "~57.0.22",
     "expo-splash-screen": "~57.0.9",
     "expo-status-bar": "~57.0.1",
+    "expo-video": "~57.0.4",
     "react": "19.2.3",
     "react-native": "0.86.3",
+    "react-native-background-timer": "^2.4.1",
+    "react-native-get-random-values": "^2.0.0",
     "react-native-safe-area-context": "~5.7.0",
     "react-native-screens": "~4.26.0"
   },
@@ -34,5 +46,18 @@
     "typecheck": "tsc --noEmit",
     "lint": "expo lint"
   },
-  "private": true
+  "private": true,
+  "expo": {
+    "install": {
+      "exclude": [
+        "@react-native-async-storage/async-storage",
+        "react-native-get-random-values"
+      ]
+    }
+  },
+  "overrides": {
+    "@daily-co/config-plugin-rn-daily-js": {
+      "expo-build-properties": "$expo-build-properties"
+    }
+  }
 }

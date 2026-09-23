@@ -4,6 +4,9 @@ export type PlaybackStatus = 'playing' | 'paused' | 'ended';
 
 export interface Playback {
   status: PlaybackStatus;
+  /** Real players report loading and errors; the simulated clock is always ready. */
+  loadState?: 'loading' | 'ready' | 'error';
+  error?: string;
   /** Seconds */
   position: number;
   play: () => void;

@@ -8,12 +8,12 @@ import { clone, MockNetworkError, simulateRequest } from './mockConfig';
 const tasks: Task[] = clone(mockTasks);
 
 export const mockTaskService: TaskService = {
-  async getTodaysTasks() {
+  async getMyTasks() {
     await simulateRequest();
-    return clone(tasks);
+    return { tasks: clone(tasks), scope: 'today' as const };
   },
 
-  async getTask(taskId) {
+  async getTask(_workerId, taskId) {
     await simulateRequest();
     const task = tasks.find((t) => t.id === taskId);
     if (!task) throw new MockNetworkError(`Task ${taskId} not found`);

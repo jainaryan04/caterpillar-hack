@@ -21,6 +21,7 @@ export const taskStatusStyle: Record<TaskStatus | 'next', BadgeStyle> = {
   next: { label: 'Up next', icon: 'arrow-right-circle', fg: colors.brand, bg: colors.brandSubtle },
   pending: { label: 'To do', icon: 'circle-outline', fg: colors.textSecondary, bg: colors.neutralSubtle },
   blocked: { label: 'Blocked', icon: 'alert', fg: colors.warning, bg: colors.warningSubtle },
+  cancelled: { label: 'Cancelled', icon: 'cancel', fg: colors.textMuted, bg: colors.neutralSubtle },
 };
 
 export function StatusBadge({ status }: { status: TaskStatus | 'next' }) {

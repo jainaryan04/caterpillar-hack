@@ -5,15 +5,16 @@ import { formatMinutes } from '@/utils/format';
 import { AppText } from '../ui/AppText';
 import { ProgressBar } from '../ui/ProgressBar';
 
-export function TaskProgress({ tasks }: { tasks: Task[] }) {
-  const done = tasks.filter((t) => t.status === 'completed').length;
-  const remainingMin = tasks.filter((t) => t.status !== 'completed').reduce((sum, t) => sum + t.estimatedMinutes, 0);
-  const total = tasks.length;
+export function TaskProgress({ tasks, label = 'Today' }: { tasks: Task[]; label?: string }) {
+  const counted = tasks.filter((t) => t.status !== 'cancelled');
+  const done = counted.filter((t) => t.status === 'completed').length;
+  const remainingMin = counted.filter((t) => t.status !== 'completed').reduce((sum, t) => sum + t.estimatedMinutes, 0);
+  const total = counted.length;
   return (
     <View style={styles.wrap}>
       <View style={styles.row}>
         <AppText variant="label" tone="secondary" caps>
-          Today
+          {label}
         </AppText>
         <AppText variant="small" tone="muted">
           {remainingMin > 0 ? `≈ ${formatMinutes(remainingMin)} left` : 'All done'}

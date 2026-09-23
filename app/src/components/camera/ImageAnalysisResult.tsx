@@ -4,6 +4,7 @@ import { colors, radius, spacing } from '@/theme/tokens';
 import { AppText } from '../ui/AppText';
 import { Card } from '../ui/Card';
 import { Icon, type IconName } from '../ui/Icon';
+import { RemoteImage } from '../ui/RemoteImage';
 import { Badge } from '../ui/StatusBadge';
 
 const severity: Record<ImageFindingSeverity, { icon: IconName; color: string; label: string }> = {
@@ -24,12 +25,23 @@ export function ImageAnalysisResult({ analysis }: { analysis: ImageAnalysis }) {
           <Icon name="waveform" size={14} color={colors.onBrand} />
         </View>
         <AppText variant="label" tone="secondary" caps style={{ flex: 1 }}>
-          Jarvis · Photo check
+          Cat · Photo check
         </AppText>
         <Badge label={confidenceLabel[analysis.confidence]} fg={colors.textSecondary} bg={colors.neutralSubtle} />
       </View>
 
       <AppText variant="heading">{analysis.summary}</AppText>
+
+      {analysis.annotatedImageUrl || analysis.manualCloseupUrl ? (
+        <View style={styles.compare}>
+          {analysis.annotatedImageUrl ? (
+            <Figure uri={analysis.annotatedImageUrl} caption="Your photo, as Cat read it" />
+          ) : null}
+          {analysis.manualCloseupUrl ? (
+            <Figure uri={analysis.manualCloseupUrl} caption="Same part in the manual" paper />
+          ) : null}
+        </View>
+      ) : null}
 
       <View style={styles.findings}>
         {analysis.findings.map((f, i) => {
@@ -65,8 +77,22 @@ export function ImageAnalysisResult({ analysis }: { analysis: ImageAnalysis }) {
   );
 }
 
+function Figure({ uri, caption, paper }: { uri: string; caption: string; paper?: boolean }) {
+  return (
+    <View style={styles.figure}>
+      <RemoteImage uri={uri} style={[styles.figureImage, paper && { backgroundColor: '#FAFAF7' }]} label={caption} />
+      <AppText variant="small" tone="muted" style={{ fontSize: 12 }}>
+        {caption}
+      </AppText>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   card: { gap: spacing.md },
+  compare: { flexDirection: 'row', gap: spacing.sm },
+  figure: { flex: 1, gap: spacing.xs },
+  figureImage: { width: '100%', height: 140, borderRadius: radius.md, backgroundColor: colors.inset },
   head: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   mark: {
     width: 22,

@@ -10,11 +10,11 @@ export function ConnectionBanner() {
   if (state === 'online') return null;
   return (
     <View style={styles.strip} accessibilityRole="alert">
-      <Icon name={state === 'offline' ? 'wifi-off' : 'sync'} size={16} color={colors.warning} />
+      <Icon name={state === 'offline' ? 'wifi-off' : 'database-alert-outline'} size={16} color={colors.warning} />
       <AppText variant="small" tone="warning" style={{ flex: 1 }}>
         {state === 'offline'
-          ? 'Offline. Showing saved data. Jarvis needs a connection.'
-          : 'Reconnecting… Live updates paused.'}
+          ? "Can't reach the task server. Task updates won't be saved until it's back."
+          : "The task server can't reach its database. Tasks may be out of date."}
       </AppText>
     </View>
   );

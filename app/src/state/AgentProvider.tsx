@@ -1,6 +1,6 @@
 import { router } from 'expo-router';
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
-import { agentService, voiceService } from '@/services';
+import { agentService } from '@/services';
 import type {
   AgentAction,
   AgentContext,
@@ -8,18 +8,14 @@ import type {
   AgentMessage,
   AgentResponse,
   SosStatus,
-  VoicePhase,
+  VoiceConnection,
 } from '@/types/agent';
 import { makeId, nowIso } from '@/utils/format';
 import { agentActionBus } from './agentActionBus';
+import { useSession } from './SessionProvider';
+import { useVoiceController, type VoiceSession } from './useVoiceController';
 
-export interface VoiceSession {
-  phase: VoicePhase;
-  transcript: string;
-  context?: AgentContext;
-  response?: AgentResponse;
-  error?: string;
-}
+export type { VoiceSession } from './useVoiceController';
 
 interface AgentState {
   messages: AgentMessage[];
@@ -35,13 +31,20 @@ interface AgentState {
 
   voice: VoiceSession;
   overlayVisible: boolean;
+  /** Open the voice overlay (mic button, "Ask Cat about this"). */
   startVoice: (context?: AgentContext) => void;
-  finishSpeaking: () => void;
   cancelVoice: () => void;
   dismissVoice: () => void;
-  /** True when the voice service offers a demo wake-word trigger. */
-  canSimulateWakeWord: boolean;
-  simulateWakeWord: () => void;
+  /** Live voice session state. */
+  voiceConnection: VoiceConnection;
+  voiceConnectionDetail?: string;
+  /** Listening for the wake phrase in the background. */
+  handsFree: boolean;
+  connectVoice: () => Promise<void>;
+  disconnectVoice: () => Promise<void>;
+  /** False when a demo voice stands in (Expo Go / mock mode). */
+  voiceIsLive: boolean;
+  wakePhrase: string;
 
   /** What the current screen is showing; attached to wake-word questions. */
   setScreenContext: (context: AgentContext | undefined) => void;
@@ -57,7 +60,6 @@ interface AgentState {
 
 const AgentStateContext = createContext<AgentState | null>(null);
 
-const IDLE: VoiceSession = { phase: 'idle', transcript: '' };
 
 function operatorMessage(text: string, mode: AgentInputMode, context?: AgentContext): AgentMessage {
   return { id: makeId('MSG'), role: 'operator', text, createdAt: nowIso(), mode, status: 'sent', context };
@@ -74,10 +76,13 @@ function agentMessage(response: AgentResponse, mode: AgentInputMode): AgentMessa
     caution: response.caution,
     citations: response.citations,
     actions: response.actions,
+    imageUrl: response.imageUrl,
+    manual: response.manual,
   };
 }
 
 export function AgentProvider({ children }: { children: ReactNode }) {
+  const { workerId } = useSession();
   const [messages, setMessages] = useState<AgentMessage[]>([]);
   const [historyNonce, setHistoryNonce] = useState(0);
   // Which load request the current history result belongs to.
@@ -85,8 +90,6 @@ export function AgentProvider({ children }: { children: ReactNode }) {
   const historyLoading = historyResult?.nonce !== historyNonce;
   const historyError = historyLoading ? undefined : historyResult?.error;
   const [pendingCount, setPendingCount] = useState(0);
-  const [voice, setVoice] = useState<VoiceSession>(IDLE);
-  const [overlayVisible, setOverlayVisible] = useState(false);
   const [chatContext, setChatContext] = useState<AgentContext>();
   const [sos, setSos] = useState<SosStatus | null>(null);
 
@@ -95,14 +98,15 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     messagesRef.current = messages;
   }, [messages]);
   const screenContextRef = useRef<AgentContext | undefined>(undefined);
-  const voiceRef = useRef<VoiceSession>(IDLE);
-  // Bumped on every new voice session so late answers from a cancelled one are ignored.
-  const voiceSessionRef = useRef(0);
 
-  const updateVoice = useCallback((next: VoiceSession) => {
-    voiceRef.current = next;
-    setVoice(next);
-  }, []);
+  // A different worker on the phone starts a clean conversation.
+  const [conversationOwner, setConversationOwner] = useState(workerId);
+  if (conversationOwner !== workerId) {
+    setConversationOwner(workerId);
+    setMessages([]);
+    setChatContext(undefined);
+    setSos(null);
+  }
 
   // History
   useEffect(() => {
@@ -120,7 +124,7 @@ export function AgentProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [historyNonce]);
+  }, [historyNonce, workerId]);
 
   // SOS updates pushed by the backend
   useEffect(() => agentService.onSosStatus(setSos), []);
@@ -161,74 +165,14 @@ export function AgentProvider({ children }: { children: ReactNode }) {
 
   const appendMessages = useCallback((extra: AgentMessage[]) => setMessages((m) => [...m, ...extra]), []);
 
-  // Voice
-  const startVoice = useCallback(
-    (context?: AgentContext) => {
-      voiceSessionRef.current += 1;
-      const ctx = context ?? screenContextRef.current;
-      updateVoice({ phase: 'listening', transcript: '', context: ctx });
-      setOverlayVisible(true);
-      voiceService.startListening({ context: ctx });
-    },
-    [updateVoice],
-  );
-
-  const finishSpeaking = useCallback(() => {
-    if (voiceRef.current.phase === 'listening') voiceService.stopListening();
-  }, []);
-
-  const cancelVoice = useCallback(() => {
-    voiceSessionRef.current += 1;
-    voiceService.cancel();
-    updateVoice(IDLE);
-    setOverlayVisible(false);
-  }, [updateVoice]);
-
-  const dismissVoice = cancelVoice;
-
+  const appendRef = useRef(appendMessages);
   useEffect(() => {
-    const offTranscript = voiceService.onTranscript((text, isFinal) => {
-      const current = voiceRef.current;
-      if (current.phase !== 'listening') return;
-      if (!isFinal) {
-        updateVoice({ ...current, transcript: text });
-        return;
-      }
-      const session = voiceSessionRef.current;
-      const context = current.context;
-      updateVoice({ ...current, transcript: text, phase: 'thinking' });
-      const question = operatorMessage(text, 'voice', context);
-      agentService
-        .sendMessage(text, context)
-        .then((response) => {
-          if (session !== voiceSessionRef.current) return;
-          setMessages((m) => [...m, question, agentMessage(response, 'voice')]);
-          updateVoice({ ...voiceRef.current, phase: 'responding', response });
-        })
-        .catch((e: unknown) => {
-          if (session !== voiceSessionRef.current) return;
-          updateVoice({
-            ...voiceRef.current,
-            phase: 'error',
-            error: e instanceof Error ? e.message : 'Jarvis is unavailable right now.',
-          });
-        });
-    });
-    const offError = voiceService.onError((message) => {
-      if (voiceRef.current.phase === 'listening') updateVoice({ ...voiceRef.current, phase: 'error', error: message });
-    });
-    const offWake = voiceService.onWakeWordDetected(() => {
-      // Ignore the wake word while a session is already on screen.
-      if (voiceRef.current.phase === 'idle') startVoice();
-    });
-    return () => {
-      offTranscript();
-      offError();
-      offWake();
-    };
-  }, [startVoice, updateVoice]);
-
-  const simulateWakeWord = useCallback(() => voiceService.simulateWakeWord?.(), []);
+    appendRef.current = appendMessages;
+  });
+  const voiceCtl = useVoiceController({
+    getScreenContext: () => screenContextRef.current,
+    onExchange: (m) => appendRef.current(m),
+  });
 
   const setScreenContext = useCallback((context: AgentContext | undefined) => {
     screenContextRef.current = context;
@@ -257,6 +201,9 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       case 'OPEN_CAMERA':
         router.push('/camera');
         break;
+      case 'OPEN_MANUAL':
+        router.push({ pathname: '/manual', params: action.page ? { page: String(action.page) } : {} });
+        break;
       case 'GET_CURRENT_TASK':
         router.navigate('/home');
         break;
@@ -276,14 +223,18 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       sendText,
       retryMessage,
       appendMessages,
-      voice,
-      overlayVisible,
-      startVoice,
-      finishSpeaking,
-      cancelVoice,
-      dismissVoice,
-      canSimulateWakeWord: typeof voiceService.simulateWakeWord === 'function',
-      simulateWakeWord,
+      voice: voiceCtl.voice,
+      overlayVisible: voiceCtl.overlayVisible,
+      startVoice: voiceCtl.startVoice,
+      cancelVoice: voiceCtl.cancelVoice,
+      dismissVoice: voiceCtl.dismissVoice,
+      voiceConnection: voiceCtl.connection,
+      voiceConnectionDetail: voiceCtl.connectionDetail,
+      handsFree: voiceCtl.handsFree,
+      connectVoice: voiceCtl.connectVoice,
+      disconnectVoice: voiceCtl.disconnectVoice,
+      voiceIsLive: voiceCtl.voiceIsLive,
+      wakePhrase: voiceCtl.wakePhrase,
       setScreenContext,
       chatContext,
       setChatContext,
@@ -299,13 +250,18 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       sendText,
       retryMessage,
       appendMessages,
-      voice,
-      overlayVisible,
-      startVoice,
-      finishSpeaking,
-      cancelVoice,
-      dismissVoice,
-      simulateWakeWord,
+      voiceCtl.voice,
+      voiceCtl.overlayVisible,
+      voiceCtl.startVoice,
+      voiceCtl.cancelVoice,
+      voiceCtl.dismissVoice,
+      voiceCtl.connection,
+      voiceCtl.connectionDetail,
+      voiceCtl.handsFree,
+      voiceCtl.connectVoice,
+      voiceCtl.disconnectVoice,
+      voiceCtl.voiceIsLive,
+      voiceCtl.wakePhrase,
       setScreenContext,
       chatContext,
       sos,

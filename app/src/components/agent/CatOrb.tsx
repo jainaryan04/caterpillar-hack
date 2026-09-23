@@ -9,17 +9,18 @@ const phaseIcon: Record<VoicePhase, IconName> = {
   listening: 'microphone',
   thinking: 'dots-horizontal',
   responding: 'volume-high',
+  done: 'check',
   error: 'alert',
 };
 
 /**
- * The Jarvis orb. Each phase looks different so the state reads at a glance:
+ * The Cat assistant orb. Each phase looks different so the state reads at a glance:
  * listening = solid yellow core with rings pulsing out,
  * thinking = dark core with a rotating yellow arc,
  * responding = light core, slow breathing,
  * idle = small, quiet outline.
  */
-export function JarvisOrb({ phase, size = 120 }: { phase: VoicePhase; size?: number }) {
+export function CatOrb({ phase, size = 120 }: { phase: VoicePhase; size?: number }) {
   const ring = useState(() => new Animated.Value(0))[0];
   const spin = useState(() => new Animated.Value(0))[0];
   const breathe = useState(() => new Animated.Value(0))[0];
@@ -60,6 +61,7 @@ export function JarvisOrb({ phase, size = 120 }: { phase: VoicePhase; size?: num
     listening: { backgroundColor: colors.brand, borderColor: colors.brand },
     thinking: { backgroundColor: colors.panel, borderColor: colors.borderStrong },
     responding: { backgroundColor: colors.text, borderColor: colors.text },
+    done: { backgroundColor: colors.raised, borderColor: colors.success },
     error: { backgroundColor: colors.warningSubtle, borderColor: colors.warning },
   }[phase];
   const iconColor = {
@@ -67,6 +69,7 @@ export function JarvisOrb({ phase, size = 120 }: { phase: VoicePhase; size?: num
     listening: colors.onBrand,
     thinking: colors.brand,
     responding: colors.onBrand,
+    done: colors.success,
     error: colors.warning,
   }[phase];
 

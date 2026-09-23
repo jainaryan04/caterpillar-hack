@@ -16,26 +16,34 @@ import { Icon } from '@/components/ui/Icon';
 import { SectionHeader } from '@/components/ui/SectionHeader';
 import { StateView } from '@/components/ui/StateView';
 import { useAsync } from '@/hooks/useAsync';
-import { operatorService, taskService, videoService } from '@/services';
+import { NoPublishedPlanError, operatorService, taskService, videoService } from '@/services';
 import { useAgent } from '@/state/AgentProvider';
-import type { Task } from '@/types/domain';
+import { useSession, useWorkerId } from '@/state/SessionProvider';
+import type { MyTasks, Task } from '@/types/domain';
 import { colors, spacing } from '@/theme/tokens';
+import { deriveShift } from '@/utils/schedule';
 
-async function loadHome() {
-  const [operator, shift, tasks, library] = await Promise.all([
-    operatorService.getCurrentOperator(),
-    operatorService.getCurrentShift(),
-    taskService.getTodaysTasks(),
-    videoService.getLibrary(),
+async function loadHome(workerId: string) {
+  const [operator, plan, requiredLeft] = await Promise.all([
+    operatorService.getOperator(workerId),
+    // A missing plan is a normal state, not a failure of the whole screen.
+    taskService.getMyTasks(workerId).catch((e: unknown) => {
+      if (e instanceof NoPublishedPlanError) return null;
+      throw e;
+    }),
+    // Training counts are a nice-to-have; never block Home on the Cat server.
+    videoService
+      .getLibrary()
+      .then((lib) => Object.values(lib.byCategory).flat().filter((v) => v.required && !v.completed).length)
+      .catch(() => null),
   ]);
-  const requiredLeft = Object.values(library.byCategory)
-    .flat()
-    .filter((v) => v.required && !v.completed).length;
-  return { operator, shift, tasks, requiredLeft };
+  return { operator, plan, requiredLeft };
 }
 
 export default function HomeScreen() {
-  const { data, error, loading, reload } = useAsync(loadHome, []);
+  const workerId = useWorkerId();
+  const { signOut } = useSession();
+  const { data, error, loading, reload } = useAsync(() => loadHome(workerId), [workerId]);
   const { startVoice } = useAgent();
 
   // Refresh when coming back from a task so status changes show up.
@@ -51,17 +59,17 @@ export default function HomeScreen() {
   );
 
   const openTask = useCallback((task: Task) => router.push({ pathname: '/task/[id]', params: { id: task.id } }), []);
+  const switchWorker = useCallback(() => {
+    signOut();
+    router.replace('/');
+  }, [signOut]);
 
   if (!data) {
     return (
       <SafeAreaView style={styles.screen} edges={['top']}>
+        <ConnectionBanner />
         {error ? (
-          <StateView
-            kind="error"
-            title="Unable to load today's tasks"
-            message="Check your connection. Your supervisor can also read out your task list."
-            onRetry={reload}
-          />
+          <StateView kind="error" title="Unable to load your tasks" message={error.message} onRetry={reload} />
         ) : (
           <StateView kind="loading" title="Loading today's tasks…" />
         )}
@@ -69,8 +77,7 @@ export default function HomeScreen() {
     );
   }
 
-  const { operator, shift, tasks, requiredLeft } = data;
-  const current = currentTask(tasks);
+  const { operator, plan, requiredLeft } = data;
 
   return (
     <SafeAreaView style={styles.screen} edges={['top']}>
@@ -87,24 +94,22 @@ export default function HomeScreen() {
           />
         }
       >
-        <HomeHeader operator={operator} onJarvis={() => startVoice()} />
+        <HomeHeader operator={operator} onTalk={() => startVoice()} onSwitchWorker={switchWorker} />
         <SosBanner />
 
-        <ShiftCard shift={shift} machine={`Assigned: Cat 320D · ${operator.assignedMachineId}`} tasks={tasks} />
-
-        {current ? (
-          <NextTaskCard task={current} onOpen={openTask} />
-        ) : tasks.length > 0 ? (
-          <Card style={styles.allDone}>
-            <Icon name="check-decagram" size={32} color={colors.success} />
-            <View style={{ flex: 1 }}>
-              <AppText variant="heading">All tasks done</AppText>
-              <AppText variant="small" tone="secondary">
-                Nice work. Complete your handover before the shift ends.
-              </AppText>
-            </View>
+        {plan ? (
+          <PlanSection plan={plan} onOpen={openTask} />
+        ) : (
+          <Card>
+            <StateView
+              kind="empty"
+              title="No plan published yet"
+              message="Your supervisor hasn't dispatched a schedule. Pull down to check again."
+              onRetry={reload}
+              compact
+            />
           </Card>
-        ) : null}
+        )}
 
         <QuickActions
           actions={[
@@ -114,27 +119,74 @@ export default function HomeScreen() {
               icon: 'school-outline',
               onPress: () => router.navigate('/learn'),
             },
-            { label: 'Ask Jarvis', hint: 'Voice or text', icon: 'waveform', onPress: () => router.navigate('/agent') },
+            { label: 'Ask Cat', hint: 'Voice or text', icon: 'waveform', onPress: () => router.navigate('/agent') },
             { label: 'Photo check', hint: 'Ask about a machine', icon: 'camera-outline', onPress: () => router.push('/camera') },
           ]}
         />
 
-        <View>
-          <SectionHeader title="Today's tasks" icon="format-list-checks" meta={`${tasks.length}`} />
-          {tasks.length === 0 ? (
-            <Card>
-              <StateView kind="empty" title="No tasks assigned today" message="Check with your supervisor." compact />
-            </Card>
-          ) : (
-            <View style={styles.list}>
-              {tasks.map((t) => (
-                <TaskCard key={t.id} task={t} status={displayStatus(t, current)} onPress={openTask} />
-              ))}
-            </View>
-          )}
-        </View>
+        {plan ? <TaskList plan={plan} onOpen={openTask} /> : null}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+function PlanSection({ plan, onOpen }: { plan: MyTasks; onOpen: (t: Task) => void }) {
+  const { tasks, scope } = plan;
+  const current = currentTask(tasks);
+  const shift = deriveShift(tasks);
+  const machines = [...new Set(tasks.map((t) => t.machineId))];
+  return (
+    <>
+      <ShiftCard
+        shift={shift}
+        subtitle={machines.length ? `Machines: ${machines.join(', ')}` : 'No machines assigned'}
+        tasks={tasks}
+        progressLabel={scope === 'today' ? 'Today' : 'Next up'}
+      />
+      {current ? (
+        <NextTaskCard task={current} onOpen={onOpen} />
+      ) : tasks.length > 0 ? (
+        <Card style={styles.allDone}>
+          <Icon name="check-decagram" size={32} color={colors.success} />
+          <View style={{ flex: 1 }}>
+            <AppText variant="heading">All tasks done</AppText>
+            <AppText variant="small" tone="secondary">
+              {"Nice work. Tell your supervisor you're free for more."}
+            </AppText>
+          </View>
+        </Card>
+      ) : null}
+    </>
+  );
+}
+
+function TaskList({ plan, onOpen }: { plan: MyTasks; onOpen: (t: Task) => void }) {
+  const { tasks, scope } = plan;
+  const current = currentTask(tasks);
+  return (
+    <View>
+      <SectionHeader
+        title={scope === 'today' ? "Today's tasks" : 'Your next tasks'}
+        icon="format-list-checks"
+        meta={`${tasks.length}`}
+      />
+      {scope === 'upcoming' && tasks.length ? (
+        <AppText variant="small" tone="muted" style={{ marginBottom: spacing.sm }}>
+          Nothing starts today. These are your next scheduled tasks.
+        </AppText>
+      ) : null}
+      {tasks.length === 0 ? (
+        <Card>
+          <StateView kind="empty" title="No tasks assigned to you" message="You're not in the current plan. Check with your supervisor." compact />
+        </Card>
+      ) : (
+        <View style={styles.list}>
+          {tasks.map((t) => (
+            <TaskCard key={t.id} task={t} status={displayStatus(t, current)} onPress={onOpen} />
+          ))}
+        </View>
+      )}
+    </View>
   );
 }
 

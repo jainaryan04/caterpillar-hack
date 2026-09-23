@@ -31,7 +31,7 @@ export default function TabsLayout() {
     >
       <Tabs.Screen name="home" options={{ title: 'Home', tabBarIcon: tabIcon('home-variant-outline') }} />
       <Tabs.Screen name="learn" options={{ title: 'Learn', tabBarIcon: tabIcon('school-outline') }} />
-      <Tabs.Screen name="agent" options={{ title: 'Jarvis', tabBarIcon: tabIcon('waveform'), tabBarAccessibilityLabel: 'Agent, Jarvis assistant' }} />
+      <Tabs.Screen name="agent" options={{ title: 'Cat', tabBarIcon: tabIcon('waveform'), tabBarAccessibilityLabel: 'Cat assistant' }} />
     </Tabs>
   );
 }
