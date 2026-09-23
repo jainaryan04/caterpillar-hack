@@ -1,5 +1,13 @@
-media/
+# Shared
 __pycache__/
 *.pyc
 .venv/
+.env
+
+# CV safety subsystem
+media/
 out/
+
+# Cat voice assistant
+cat_agent/data/manuals/*.pdf
+cat_agent/data/manuals/images/

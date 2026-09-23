@@ -1,0 +1,12 @@
+[project]
+name = "cat-agent"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "loguru>=0.7.3",
+    "openai-agents>=0.22.3",
+    "pinecone>=10.0.0",
+    "pipecat-ai[cartesia,cerebras,deepgram,local,openai,silero]>=1.11.0",
+    "pymupdf>=1.28.2",
+    "python-dotenv>=1.2.3",
+]
