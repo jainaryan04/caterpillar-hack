@@ -30,7 +30,7 @@ def check(name, condition, detail=""):
 
 
 def feed(mon, *, duration, fps=20.0, ear=OPEN_EAR, mar=CLOSED_MOUTH,
-         face=True, pitch=0.0, t0=0.0):
+         face=True, pitch=0.0, yaw=0.0, roll=0.0, t0=0.0):
     """Push `duration` seconds of identical frames. Returns (last_verdict, t)."""
     step = 1.0 / fps
     t = t0
@@ -44,6 +44,8 @@ def feed(mon, *, duration, fps=20.0, ear=OPEN_EAR, mar=CLOSED_MOUTH,
                 ear=ear if face else None,
                 mar=mar if face else None,
                 pitch_deg=pitch if face else None,
+                yaw_deg=yaw if face else None,
+                roll_deg=roll if face else None,
                 face_confidence=0.9 if face else 0.0,
             )
         )
@@ -144,13 +146,16 @@ def test_yawning():
 
 
 def test_face_lost():
-    print("\n[7] face not visible -> UNKNOWN, and no phantom closure")
+    print("\n[7] face not visible -> no phantom closure, and it recovers")
     mon = DrowsinessMonitor()
     v, t = feed(mon, duration=10.0)
     v, t = feed(mon, duration=40.0, face=False, t0=t)
-    check("level is UNKNOWN", v.level == "UNKNOWN", f"got {v.level}")
-    check("not claimed sleepy", v.sleepy is False)
+    # Sustained loss is an alert now (see test 17), but it must never be
+    # reported as an eye-closure event that never happened.
     check("no microsleep invented", v.microsleeps_recent == 0)
+    check("eyes not claimed closed", v.eyes_closed is False)
+    check("reason is the lost face, not the eyes",
+          any("face not visible" in r for r in v.reasons), f"reasons={v.reasons}")
 
     v, t = feed(mon, duration=15.0, t0=t)
     check("recovers to ALERT once face returns", v.level == "ALERT",
@@ -266,6 +271,112 @@ def test_yawn_detected_when_blendshape_is_occluded():
           f"got {v2.yawns_in_window}")
 
 
+# --- the two things live testing surfaced -----------------------------------
+
+def test_talking_never_alerts():
+    print("\n[13] a driver holding a conversation stays silent")
+    mon = DrowsinessMonitor()
+    v, t = feed(mon, duration=12.0)
+    # Speech: mouth opening to a speech-sized 0.55 (below the 0.72 bar),
+    # 200-500ms at a time, with blinks mixed in, for a solid minute.
+    for i in range(45):
+        _, t = feed(mon, duration=0.25, mar=0.55, t0=t)
+        _, t = feed(mon, duration=0.35, mar=0.20, t0=t)
+        if i % 5 == 0:
+            _, t = feed(mon, duration=0.20, ear=SHUT_EAR, t0=t)
+        v, t = feed(mon, duration=0.40, t0=t)
+    check("stays ALERT through 60s of talking", v.level == "ALERT",
+          f"got {v.level} score={v.score} reasons={v.reasons}")
+    check("no yawns logged", v.yawns_in_window == 0, f"got {v.yawns_in_window}")
+    check("no microsleeps logged", v.microsleeps_recent == 0)
+
+
+def test_heavy_blinking_never_alerts():
+    print("\n[14] frequent, slightly slow blinking is not an alert")
+    mon = DrowsinessMonitor()
+    v, t = feed(mon, duration=12.0)
+    # ~24 blinks/min at 400ms each. Real blink rates run 15-25/min at
+    # 100-400ms; this is the busy end of normal, ~16% PERCLOS.
+    for _ in range(30):
+        _, t = feed(mon, duration=0.40, ear=SHUT_EAR, t0=t)
+        v, t = feed(mon, duration=2.10, t0=t)
+    check("stays ALERT", v.level == "ALERT",
+          f"got {v.level} score={v.score} reasons={v.reasons}")
+    check("blink rate is still reported", v.blink_rate_per_min > 0,
+          f"rate={v.blink_rate_per_min}")
+    check("slow blinks are not a reason",
+          not any("blink" in r.lower() for r in v.reasons), f"reasons={v.reasons}")
+    check("PERCLOS stayed under the mild bar", v.perclos < 0.18,
+          f"perclos={v.perclos}")
+
+
+def test_doze_head_drops_forward():
+    print("\n[15] chin drops toward chest -> DROWSY even with eyes visible")
+    mon = DrowsinessMonitor()
+    # Dash camera: their attentive forward pitch is -10, not 0.
+    v, t = feed(mon, duration=20.0, pitch=-10.0)
+    check("learned their forward pitch", v.pitch_baseline is not None
+          and abs(v.pitch_baseline + 10.0) < 3.0, f"baseline={v.pitch_baseline}")
+    check("normal posture reads forward", v.head_state == "forward",
+          f"got {v.head_state}")
+    v, t = feed(mon, duration=2.0, pitch=-34.0, t0=t)
+    check("classified as head down", v.head_state == "down", f"got {v.head_state}")
+    check("flagged sleepy", v.sleepy is True,
+          f"level={v.level} score={v.score} reasons={v.reasons}")
+
+
+def test_doze_head_rolls_to_the_side():
+    print("\n[16] head tipping onto a shoulder -> DROWSY")
+    mon = DrowsinessMonitor()
+    v, t = feed(mon, duration=20.0)
+    v, t = feed(mon, duration=3.0, roll=-35.0, t0=t)
+    check("classified as tilted", v.head_state == "tilted", f"got {v.head_state}")
+    check("flagged sleepy", v.sleepy is True,
+          f"level={v.level} score={v.score} reasons={v.reasons}")
+
+    turned = DrowsinessMonitor()
+    v2, t2 = feed(turned, duration=20.0)
+    v2, t2 = feed(turned, duration=3.0, yaw=48.0, t0=t2)
+    check("head turned far off-axis also counts", v2.sleepy is True,
+          f"level={v2.level} reasons={v2.reasons}")
+
+    # A glance at a mirror is not a doze.
+    glance = DrowsinessMonitor()
+    v3, t3 = feed(glance, duration=20.0)
+    v3, t3 = feed(glance, duration=0.6, yaw=48.0, t0=t3)
+    v3, t3 = feed(glance, duration=3.0, t0=t3)
+    check("a brief mirror glance does not alert", v3.level == "ALERT",
+          f"got {v3.level} score={v3.score} reasons={v3.reasons}")
+
+
+def test_face_lost_long_is_an_alert_not_silence():
+    print("\n[17] face gone for seconds must alert, not go quiet")
+    mon = DrowsinessMonitor()
+    v, t = feed(mon, duration=20.0)
+    v, t = feed(mon, duration=2.0, face=False, t0=t)
+    check("a 2s gap does not alert", v.level in ("ALERT", "UNKNOWN") and not v.sleepy,
+          f"got {v.level} score={v.score}")
+    v, t = feed(mon, duration=3.0, face=False, t0=t)
+    check("5s of no face is an alert", v.level != "UNKNOWN" and v.score > 0,
+          f"got {v.level} score={v.score}")
+    check("reason names the cause",
+          any("face not visible" in r for r in v.reasons), f"reasons={v.reasons}")
+    v, t = feed(mon, duration=4.0, face=False, t0=t)
+    check("9s of no face is severe", v.sleepy is True,
+          f"level={v.level} score={v.score}")
+
+
+def test_wide_yawn_alone_alerts():
+    print("\n[18] one long fully-open mouth is enough")
+    mon = DrowsinessMonitor()
+    v, t = feed(mon, duration=20.0)
+    v, t = feed(mon, duration=2.0, mar=0.85, t0=t)
+    check("flagged sleepy on a single sustained yawn", v.sleepy is True,
+          f"level={v.level} score={v.score} reasons={v.reasons}")
+    check("reason names the mouth",
+          any("mouth" in r for r in v.reasons), f"reasons={v.reasons}")
+
+
 if __name__ == "__main__":
     for fn in [
         test_alert_baseline,
@@ -280,6 +391,12 @@ if __name__ == "__main__":
         test_recovery,
         test_perclos_needs_warmup,
         test_yawn_detected_when_blendshape_is_occluded,
+        test_talking_never_alerts,
+        test_heavy_blinking_never_alerts,
+        test_doze_head_drops_forward,
+        test_doze_head_rolls_to_the_side,
+        test_face_lost_long_is_an_alert_not_silence,
+        test_wide_yawn_alone_alerts,
     ]:
         fn()
 

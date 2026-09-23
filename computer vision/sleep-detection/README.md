@@ -35,13 +35,25 @@ over wall-clock time, so the verdict is identical at 8 fps or 30 fps.
 
 | Signal | Rule | Threshold |
 |---|---|---|
-| **Blink** | closure ≤ 0.40 s | ignored — this is normal |
+| **Blink** | closure ≤ 0.55 s | ignored — never scored, at any rate |
 | **Microsleep** | closure ≥ 1.0 s | +55, fires *during* the closure |
 | **Eyes shut** | closure ≥ 2.5 s | +80 → CRITICAL |
-| **PERCLOS** | % eyelid closure over 60 s | ≥ 12 % mild, ≥ 25 % drowsy |
-| **Yawn** | mouth wide ≥ 1.2 s and ≤ 8 s | 3 in 5 min → +25 |
-| **Slow blinks** | mean blink ≥ 300 ms | +10, an early fatigue marker |
-| **Head nod** | pitch ≤ −25° for ≥ 0.8 s | +20 |
+| **Head dropped** | pitch ≥ 18° below their normal, ≥ 1.2 s | +55; +80 past 2.5 s |
+| **Head turned / tilted** | \|yaw\| ≥ 35° or \|roll\| ≥ 28°, ≥ 1.2 s | +55; +80 past 2.5 s |
+| **Face not visible** | gone ≥ 3 s | +45; +75 past 6 s |
+| **Yawn** | mouth *fully* open ≥ 1.5 s | +50 — one is enough |
+| **PERCLOS** | % eyelid closure over 60 s | ≥ 18% +15, ≥ 28% +25 (caps at MILD) |
+
+Three deliberate choices in that table:
+
+- **Blinking is never scored.** Not rate, not duration. Only sustained closure
+  counts, and PERCLOS is capped so it can reach MILD but never DROWSY on its
+  own — a driver gets alerted for eyes *shut*, not for blinking often.
+- **Talking cannot start a yawn.** The mouth bar is "fully open" (MAR 0.72 /
+  jawOpen 0.60), which speech does not reach, and it must hold for 1.5 s.
+- **Head posture is a primary signal.** Someone dozing off drops their chin or
+  rolls their head to one side, and their eyes are usually invisible by then.
+  Eye-only detection goes silent at exactly the wrong moment.
 
 Score is clamped to 0–100: `<25 ALERT`, `25–49 MILD`, `50–74 DROWSY`,
 `≥75 CRITICAL`. `UNKNOWN` when the face has not been visible for most of the
@@ -57,9 +69,15 @@ Three details that matter in practice:
 - **Yawning is a duration, not a threshold.** A mouth open for 0.4 s is
   speech. The rule requires 1.2 s sustained, and caps at 8 s so a mis-tracked
   jaw doesn't log an endless yawn.
-- **Losing the face never invents an event.** Any closure or yawn in progress
-  is aborted rather than left running, so a driver turning their head cannot
-  produce a phantom microsleep.
+- **Losing the face never invents an event, but never goes quiet either.** Any
+  closure or yawn in progress is aborted, so a head-turn cannot fabricate a
+  microsleep — but a face missing for seconds is itself scored as "head turned
+  away". Reporting UNKNOWN there would go silent at the exact moment a slumped
+  driver most needs the alarm.
+- **Head pitch is learned, not assumed.** A dash-mounted camera looks up at the
+  face, so an attentive driver can sit at −10° all day; measured on
+  `tired_driver` their forward pitch runs −8° to −10°. A chin-drop is judged
+  against the driver's own rolling median, not an absolute angle.
 
 ## Setup
 
@@ -247,12 +265,15 @@ Every threshold is in the `Thresholds` dataclass at the top of
 - `microsleep_s` (1.0) — lower for an earlier alarm, raise to cut false positives
 - `perclos_drowsy` (0.25) — the standard fatigue measure; 0.15 is aggressive
 - `eye_closed_ratio` (0.65) — raise if closures are missed on squinty drivers
-- `yawn_min_s` (1.2) — raise if talking is being logged as yawning
+- `yawn_min_s` (1.5) — raise if talking is being logged as yawning
+- `yaw_away_deg` (35) / `roll_tilt_deg` (28) — lower to catch subtler slumps;
+  a mirror glance on `tired_driver` peaks at 28° yaw, so 35 clears it
+- `face_lost_alert_s` (3.0) — how long a missing face stays merely unknown
 
-Head-nod detection is deliberately weighted low (+20, never enough to reach
-DROWSY alone), because the pitch sign convention depends on the camera
-mounting. Check the `pitch` readout in the webcam HUD; if looking down reads
-positive, flip the sign in `landmarks.head_pose_deg`.
+Yaw and roll are judged on magnitude, so the sign convention of MediaPipe's
+transformation matrix cannot silently invert those rules. Pitch is the one
+signed quantity, and it is compared against a learned baseline rather than
+zero, which absorbs the camera's mounting angle.
 
 ## Graceful degradation
 

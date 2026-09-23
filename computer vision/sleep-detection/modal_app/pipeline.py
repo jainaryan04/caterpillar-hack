@@ -22,6 +22,7 @@ class FacePipeline:
         self,
         landmarker_path: str,
         yolo_path: Optional[str] = None,
+        detector: str = "auto",
         yolo_conf: float = 0.35,
         crop_margin: float = 0.25,
         warmup: bool = True,
@@ -39,12 +40,19 @@ class FacePipeline:
 
         self.yolo_conf = yolo_conf
         self.crop_margin = crop_margin
+        self.detector_mode = detector
         self._mp = mp
 
-        # --- face detector (optional: we degrade rather than fail) ---
+        # --- face detector ---
+        # "mediapipe" skips YOLO entirely and lets FaceLandmarker use its own
+        # built-in BlazeFace detector on the full frame. For a webcam-distance
+        # frontal face that is both more reliable and ~25x faster; YOLO earns
+        # its keep on small, distant or awkwardly-angled faces.
         self.yolo = None
         self.yolo_error = None
-        if yolo_path and os.path.exists(yolo_path):
+        if detector == "mediapipe":
+            self.yolo_error = "disabled (detector='mediapipe')"
+        elif yolo_path and os.path.exists(yolo_path):
             try:
                 from ultralytics import YOLO
 
@@ -58,8 +66,12 @@ class FacePipeline:
             except Exception as exc:  # noqa: BLE001 - degrade, don't die
                 self.yolo_error = f"{type(exc).__name__}: {exc}"
                 self.yolo = None
+                if detector == "yolo":
+                    raise
         else:
             self.yolo_error = f"checkpoint not found: {yolo_path}"
+            if detector == "yolo":
+                raise FileNotFoundError(self.yolo_error)
 
         # --- landmarker ---
         self.landmarker = mp_vision.FaceLandmarker.create_from_options(
@@ -80,7 +92,10 @@ class FacePipeline:
 
     @property
     def detector_name(self) -> str:
-        return "yolo" if self.yolo is not None else "mediapipe-fallback"
+        if self.yolo is not None:
+            return "yolo"
+        # Distinguish a deliberate choice from YOLO having failed to load.
+        return "mediapipe" if self.detector_mode == "mediapipe" else "mediapipe-fallback"
 
     # -- detection ---------------------------------------------------------
 
@@ -175,6 +190,8 @@ class FacePipeline:
             blink_score=lmk.blink_score(shapes),
             jaw_open_score=lmk.jaw_open_score(shapes),
             pitch_deg=pitch,
+            yaw_deg=yaw,
+            roll_deg=roll,
             face_confidence=float(box[4]) if box else 0.0,
         )
 

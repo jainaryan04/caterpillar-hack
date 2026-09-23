@@ -62,7 +62,7 @@ def annotate(frame, v, box, lm):
     cv2.putText(frame,
                 f"EAR {f(v.ear)}/{f(v.ear_baseline)}  MAR {f(v.mar)}  "
                 f"PERCLOS {v.perclos*100:.0f}%  shut {v.closure_s:.1f}s  "
-                f"pitch {f(v.pitch_deg, 0)}",
+                f"head {v.head_state} pitch {f(v.pitch_deg,0)} yaw {f(v.yaw_deg,0)}",
                 (16, 72), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (220, 220, 220), 1)
     cv2.putText(frame, "  ".join(v.reasons[:3])[:96], (16, 90),
                 cv2.FONT_HERSHEY_SIMPLEX, 0.46, color, 1)
@@ -79,6 +79,8 @@ def main():
     ap.add_argument("--json", default="", help="dump the timeline here")
     ap.add_argument("--stride", type=int, default=1)
     ap.add_argument("--yolo", default=str(pathlib.Path.home() / "Downloads" / "yolov12m-face.pt"))
+    ap.add_argument("--detector", default="mediapipe",
+                    choices=("mediapipe", "yolo", "auto"))
     ap.add_argument("--landmarker", default=str(ROOT / "models" / "face_landmarker.task"))
     args = ap.parse_args()
 
@@ -88,7 +90,8 @@ def main():
 
     print("loading models...")
     t0 = time.perf_counter()
-    pipe = FacePipeline(landmarker_path=args.landmarker, yolo_path=args.yolo)
+    pipe = FacePipeline(landmarker_path=args.landmarker, yolo_path=args.yolo,
+                        detector=args.detector)
     print(f"  detector: {pipe.detector_name}  ({time.perf_counter()-t0:.1f}s)")
     if pipe.yolo_error:
         print(f"  yolo note: {pipe.yolo_error}")
@@ -124,6 +127,8 @@ def main():
                 "t": round(ts, 3), "frame": idx, "level": v.level, "score": v.score,
                 "ear": v.ear, "mar": v.mar, "perclos": v.perclos,
                 "closure_s": v.closure_s, "pitch": v.pitch_deg,
+                "yaw": v.yaw_deg, "roll": v.roll_deg, "head": v.head_state,
+                "face_lost_s": v.face_lost_s,
                 "blink": out["signals"].blink_score,
                 "jaw": out["signals"].jaw_open_score,
                 "face": v.face_found,

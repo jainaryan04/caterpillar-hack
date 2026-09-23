@@ -1,18 +1,24 @@
-"""Live webcam driver-sleep monitor backed by the Modal deployment.
+"""Live webcam driver-sleep monitor.
 
-    python scripts/run_webcam.py                 # uses the Modal SDK (no URL needed)
-    python scripts/run_webcam.py --url https://...analyze.modal.run
-    python scripts/run_webcam.py --record out.mp4
+    python scripts/run_webcam.py                 # local, mediapipe only  <- default
+    python scripts/run_webcam.py --backend modal
+    python scripts/run_webcam.py --backend http --url https://...analyze.modal.run
 
-Capture and display run at full camera rate on the main thread while a worker
-thread ships frames to Modal, so the preview never stutters waiting on the
-network -- the HUD just shows the most recent verdict that came back.
+Runs locally by default. MediaPipe's own face detector matches YOLO frame-for
+-frame at webcam distance (100% on samples/tired_driver) at ~8 ms/frame versus
+~230 ms, so for a face this close there is nothing to gain from either YOLO or
+a network round trip. Use --detector yolo for small or distant faces, and
+--backend modal to push the work off this machine.
+
+Capture and display run at full camera rate on the main thread; a worker
+thread does inference, so the preview never stutters.
 """
 
 from __future__ import annotations
 
 import argparse
 import base64
+import pathlib
 import subprocess
 import sys
 import threading
@@ -22,8 +28,41 @@ from queue import Empty, Queue
 import cv2
 import numpy as np
 
+ROOT = pathlib.Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT / "modal_app"))
 APP_NAME = "sleep-detection"
 CLASS_NAME = "SleepDetector"
+
+JPEG_QUALITY = 75
+
+
+def _encode(frame) -> str:
+    ok, buf = cv2.imencode(".jpg", frame,
+                           [int(cv2.IMWRITE_JPEG_QUALITY), JPEG_QUALITY])
+    if not ok:
+        raise RuntimeError("JPEG encode failed")
+    return base64.b64encode(buf).decode()
+
+
+def rescale(result, factor):
+    """Map box/landmark coords from the sent frame back to the display frame.
+
+    Without this the overlay lands at the wrong place and scale whenever the
+    frame is downscaled before sending, which looks exactly like the detector
+    failing even when it is working perfectly.
+    """
+    if factor == 1.0 or not result:
+        return result
+    box = result.get("box")
+    if box:
+        result["box"] = [c * factor for c in box[:4]] + [box[4]]
+    lm = result.get("landmarks")
+    if lm:
+        result["landmarks"] = {
+            k: [[x * factor, y * factor] for x, y in pts] for k, pts in lm.items()
+        }
+    return result
+
 
 LEVEL_COLORS = {          # BGR
     "ALERT": (90, 200, 90),
@@ -39,6 +78,34 @@ LEVEL_COLORS = {          # BGR
 # --------------------------------------------------------------------------
 
 
+class LocalTransport:
+    """Runs the pipeline in this process. Lowest latency, no account needed."""
+
+    def __init__(self, landmarker, yolo, detector):
+        from pipeline import FacePipeline
+        from rules import DrowsinessMonitor
+
+        self.pipe = FacePipeline(
+            landmarker_path=landmarker, yolo_path=yolo, detector=detector
+        )
+        self._new_monitor = DrowsinessMonitor
+        self.monitor = DrowsinessMonitor()
+        self.name = f"local/{self.pipe.detector_name}"
+
+    def send(self, frame, session, ts, reset=False):
+        if reset:
+            self.monitor = self._new_monitor()
+        out = self.pipe.measure(frame, ts)
+        v = self.monitor.update(out["signals"])
+        return {
+            "verdict": v.to_dict(),
+            "box": out["box"],
+            "landmarks": out.get("landmarks"),
+            "head_pose": out.get("head_pose"),
+            "timing_ms": out["timing_ms"],
+        }
+
+
 class ModalSdkTransport:
     """Calls the deployed class directly. No endpoint URL to copy around."""
 
@@ -47,9 +114,10 @@ class ModalSdkTransport:
 
         cls = modal.Cls.from_name(APP_NAME, CLASS_NAME)
         self.det = cls()
+        self.name = "modal-sdk"
 
-    def send(self, b64, session, ts, reset=False):
-        return self.det.analyze_frame.remote(b64, session, ts, reset)
+    def send(self, frame, session, ts, reset=False):
+        return self.det.analyze_frame.remote(_encode(frame), session, ts, reset)
 
 
 class HttpTransport:
@@ -59,11 +127,13 @@ class HttpTransport:
         self.url = url
         self.timeout = timeout
         self.session = requests.Session()
+        self.name = "modal-http"
 
-    def send(self, b64, session, ts, reset=False):
+    def send(self, frame, session, ts, reset=False):
         r = self.session.post(
             self.url,
-            json={"image": b64, "session_id": session, "timestamp": ts, "reset": reset},
+            json={"image": _encode(frame), "session_id": session,
+                  "timestamp": ts, "reset": reset},
             timeout=self.timeout,
         )
         r.raise_for_status()
@@ -78,13 +148,17 @@ class HttpTransport:
 def draw_hud(frame, result, net_ms, send_fps, alarm_phase):
     h, w = frame.shape[:2]
     if result is None:
-        cv2.putText(frame, "connecting to Modal...", (20, 40),
+        cv2.putText(frame, "starting...", (20, 40),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.8, (200, 200, 200), 2)
         return frame
 
     v = result["verdict"]
     level = v["level"]
     color = LEVEL_COLORS.get(level, (200, 200, 200))
+
+    if v.get("face_lost_s", 0) >= 1.0:
+        cv2.putText(frame, "NO FACE", (w // 2 - 110, h // 2 - 60),
+                    cv2.FONT_HERSHEY_SIMPLEX, 1.4, color, 4)
 
     # Face box
     box = result.get("box")
@@ -106,7 +180,7 @@ def draw_hud(frame, result, net_ms, send_fps, alarm_phase):
             cv2.circle(frame, (int(px), int(py)), 2, mouth_c, -1)
 
     # Status panel
-    panel_h = 118
+    panel_h = 138
     overlay = frame.copy()
     cv2.rectangle(overlay, (0, 0), (w, panel_h), (24, 24, 24), -1)
     cv2.addWeighted(overlay, 0.72, frame, 0.28, 0, frame)
@@ -127,12 +201,20 @@ def draw_hud(frame, result, net_ms, send_fps, alarm_phase):
     line1 = (f"EAR {fmt(v['ear'], 3)}/{fmt(v['ear_baseline'], 3)}  "
              f"MAR {fmt(v['mar'], 3)}  PERCLOS {v['perclos']*100:.0f}%  "
              f"shut {v['closure_s']:.1f}s")
-    line2 = (f"yawns {v['yawns_in_window']}  microsleeps {v['microsleeps_recent']}  "
-             f"blinks {v['blink_rate_per_min']:.0f}/min ({v['avg_blink_s']*1000:.0f}ms)  "
-             f"pitch {fmt(v['pitch_deg'], 0)}")
+    head = v.get("head_state", "forward")
+    head_txt = head.upper() if head != "forward" else "forward"
+    if v.get("head_drop_s", 0) >= 0.4 and head != "forward":
+        head_txt += f" {v['head_drop_s']:.1f}s"
+    if v.get("face_lost_s", 0) >= 0.5:
+        head_txt += f"   NO FACE {v['face_lost_s']:.1f}s"
+    line2 = (f"head {head_txt}  pitch {fmt(v['pitch_deg'], 0)}"
+             f"/{fmt(v.get('pitch_baseline'), 0)}  yaw {fmt(v.get('yaw_deg'), 0)}  "
+             f"roll {fmt(v.get('roll_deg'), 0)}")
+    line3 = (f"yawns {v['yawns_in_window']}  microsleeps {v['microsleeps_recent']}  "
+             f"blinks {v['blink_rate_per_min']:.0f}/min (not scored)")
     cv2.putText(frame, line1, (16, 74), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (220, 220, 220), 1)
     cv2.putText(frame, line2, (16, 94), cv2.FONT_HERSHEY_SIMPLEX, 0.48, (190, 190, 190), 1)
-    cv2.putText(frame, f"net {net_ms:.0f}ms  {send_fps:.1f} fps to Modal",
+    cv2.putText(frame, f"{net_ms:.0f}ms/frame  {send_fps:.1f} fps",
                 (16, 112), cv2.FONT_HERSHEY_SIMPLEX, 0.44, (150, 150, 150), 1)
 
     # Reasons, bottom-left
@@ -170,23 +252,40 @@ def beep():
 def main():
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--url", default="", help="HTTP endpoint; omit to use the Modal SDK")
+    ap.add_argument("--backend", default="local", choices=("local", "modal", "http"),
+                    help="where inference runs (default: local)")
+    ap.add_argument("--detector", default="mediapipe",
+                    choices=("mediapipe", "yolo", "auto"),
+                    help="mediapipe is faster and just as good up close")
+    ap.add_argument("--url", default="", help="endpoint for --backend http")
+    ap.add_argument("--landmarker", default=str(ROOT / "models" / "face_landmarker.task"))
+    ap.add_argument("--yolo", default=str(pathlib.Path.home() / "Downloads" / "yolov12m-face.pt"))
     ap.add_argument("--camera", type=int, default=0)
     ap.add_argument("--width", type=int, default=960, help="capture width")
-    ap.add_argument("--send-width", type=int, default=640,
-                    help="downscale before upload; smaller = lower latency")
-    ap.add_argument("--send-fps", type=float, default=10.0,
-                    help="frames per second shipped to Modal")
-    ap.add_argument("--quality", type=int, default=75, help="JPEG quality 1-100")
+    ap.add_argument("--send-width", type=int, default=0,
+                    help="downscale before inference (0 = full frame)")
+    ap.add_argument("--send-fps", type=float, default=0,
+                    help="inference rate; 0 = as fast as it will go")
     ap.add_argument("--session", default=f"webcam-{int(time.time())}")
     ap.add_argument("--no-mirror", action="store_true")
     ap.add_argument("--no-sound", action="store_true")
     ap.add_argument("--record", default="", help="write the annotated view to this mp4")
     args = ap.parse_args()
 
-    transport = HttpTransport(args.url) if args.url else ModalSdkTransport()
-    print(f"transport: {'HTTP ' + args.url if args.url else 'Modal SDK'}")
-    print(f"session:   {args.session}")
+    if args.backend == "http":
+        if not args.url:
+            sys.exit("--backend http needs --url")
+        transport = HttpTransport(args.url)
+    elif args.backend == "modal":
+        transport = ModalSdkTransport()
+    else:
+        transport = LocalTransport(args.landmarker, args.yolo, args.detector)
+
+    # Local inference is ~8 ms, so run it every frame; a network hop is not.
+    send_fps = args.send_fps or (30.0 if args.backend == "local" else 4.0)
+    print(f"backend:  {transport.name}")
+    print(f"rate:     {send_fps:.0f} fps")
+    print(f"session:  {args.session}")
 
     cap = cv2.VideoCapture(args.camera)
     cap.set(cv2.CAP_PROP_FRAME_WIDTH, args.width)
@@ -200,12 +299,12 @@ def main():
     def worker():
         while not state["stop"]:
             try:
-                b64, ts, reset = outbox.get(timeout=0.25)
+                payload, ts, reset, factor = outbox.get(timeout=0.25)
             except Empty:
                 continue
             t0 = time.perf_counter()
             try:
-                res = transport.send(b64, args.session, ts, reset)
+                res = rescale(transport.send(payload, args.session, ts, reset), factor)
                 with lock:
                     state["result"] = res
                     state["net_ms"] = (time.perf_counter() - t0) * 1000.0
@@ -218,7 +317,7 @@ def main():
     threading.Thread(target=worker, daemon=True).start()
 
     writer = None
-    send_interval = 1.0 / max(0.5, args.send_fps)
+    send_interval = 1.0 / max(0.5, send_fps)
     last_send = 0.0
     start = time.time()
     was_sleepy = False
@@ -234,17 +333,14 @@ def main():
 
             now = time.time()
             if now - last_send >= send_interval and not outbox.full():
-                small = frame
-                if frame.shape[1] > args.send_width:
+                small, factor = frame, 1.0
+                if args.send_width and frame.shape[1] > args.send_width:
                     scale = args.send_width / frame.shape[1]
                     small = cv2.resize(frame, None, fx=scale, fy=scale)
-                ok_enc, buf = cv2.imencode(
-                    ".jpg", small, [int(cv2.IMWRITE_JPEG_QUALITY), args.quality]
-                )
-                if ok_enc:
-                    outbox.put((base64.b64encode(buf).decode(), now, first))
-                    first = False
-                    last_send = now
+                    factor = 1.0 / scale   # map results back to display coords
+                outbox.put((small.copy(), now, first, factor))
+                first = False
+                last_send = now
 
             with lock:
                 result, net_ms, sent, err = (

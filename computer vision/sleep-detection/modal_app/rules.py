@@ -40,30 +40,48 @@ class Thresholds:
     blink_blendshape: float = 0.55        # mediapipe eyeBlink_* fallback
 
     # --- blink vs microsleep ---
-    blink_max_s: float = 0.40             # <= this is an ordinary blink: ignored
+    blink_max_s: float = 0.55             # <= this is an ordinary blink: ignored
     microsleep_s: float = 1.00            # >= this is a microsleep: serious
     long_closure_s: float = 2.50          # >= this is eyes-shut: critical
 
     # --- PERCLOS (percent eyelid closure over time) ---
     perclos_window_s: float = 60.0
-    perclos_mild: float = 0.12
-    perclos_drowsy: float = 0.25
+    # Deliberately weighted so PERCLOS alone tops out at MILD: a driver is
+    # alerted for eyes *shut for a while*, not for blinking often.
+    perclos_mild: float = 0.18
+    perclos_drowsy: float = 0.28
     # PERCLOS is a percentage *over time*. Until this much face-visible time
     # has accumulated it is noise -- a session opening mid-blink would
     # otherwise read 100% off a single frame.
     perclos_min_observed_s: float = 15.0
 
     # --- yawning ---
-    mouth_open_mar: float = 0.60          # mouth aspect ratio threshold
-    jaw_open_blendshape: float = 0.50     # mediapipe jawOpen fallback
-    yawn_min_s: float = 1.20              # sustained -> yawn, not speech
+    # "Fully open", not "open": speech peaks well below these, so talking
+    # cannot start a yawn episode at all.
+    mouth_open_mar: float = 0.72          # mouth aspect ratio threshold
+    jaw_open_blendshape: float = 0.60     # mediapipe jawOpen
+    yawn_min_s: float = 1.50              # sustained -> yawn, not speech
     yawn_max_s: float = 8.00              # longer than this is not a yawn
     yawn_window_s: float = 300.0
     yawn_drowsy_count: int = 3            # yawns in window that mean trouble
 
-    # --- head nod ---
-    nod_pitch_deg: float = 25.0           # head pitched down this far
-    nod_min_s: float = 0.80
+    # --- head posture ---
+    # Pitch is measured against the driver's own learned forward pitch: a
+    # normal forward gaze already reads about -10 deg on a dash-mounted
+    # camera, and that offset changes with every mounting.
+    pitch_drop_deg: float = 18.0          # this far below their normal = chin down
+    pitch_drop_abs_deg: float = 25.0      # absolute fallback before baseline exists
+    yaw_away_deg: float = 35.0            # head turned this far off-axis
+    roll_tilt_deg: float = 28.0           # head tipping onto a shoulder
+    head_drop_s: float = 1.20             # sustained before it counts
+    head_drop_bad_s: float = 2.50         # sustained this long is severe
+    pitch_baseline_window_s: float = 60.0
+    pitch_baseline_min_samples: int = 30
+
+    # Face gone this long means the head is turned right away or the driver
+    # has slumped out of frame. Silence is the wrong answer there.
+    face_lost_alert_s: float = 3.00
+    face_lost_bad_s: float = 6.00
 
     # --- housekeeping ---
     max_dt_s: float = 0.50                # cap gaps so a stall can't skew windows
@@ -94,6 +112,8 @@ class FrameSignals:
     blink_score: Optional[float] = None    # mediapipe eyeBlink_* (0..1)
     jaw_open_score: Optional[float] = None # mediapipe jawOpen (0..1)
     pitch_deg: Optional[float] = None      # head pitch, negative = looking down
+    yaw_deg: Optional[float] = None        # head turned left/right
+    roll_deg: Optional[float] = None       # head tipped toward a shoulder
     face_confidence: float = 0.0
 
 
@@ -127,6 +147,12 @@ class Verdict:
     mar: Optional[float] = None
     ear_baseline: float = 0.0
     pitch_deg: Optional[float] = None
+    yaw_deg: Optional[float] = None
+    roll_deg: Optional[float] = None
+    pitch_baseline: Optional[float] = None
+    head_state: str = "forward"   # forward | down | turned | tilted
+    head_drop_s: float = 0.0
+    face_lost_s: float = 0.0
     face_found: bool = False
     face_visible_ratio: float = 1.0
     session_s: float = 0.0
@@ -193,8 +219,13 @@ class DrowsinessMonitor:
         self._closure_counted: bool = False   # microsleep already emitted
         self._yawn_start: Optional[float] = None
         self._yawn_counted: bool = False
-        self._nod_start: Optional[float] = None
-        self._nod_counted: bool = False
+        self._head_start: Optional[float] = None
+        self._head_counted: bool = False
+        self._head_state: str = "forward"
+        self._pitch_samples: Deque[tuple] = deque()
+        self._pitch_baseline: Optional[float] = None
+        self._face_lost_since: Optional[float] = None
+        self._face_lost_s: float = 0.0
 
         self._events: Deque[Event] = deque()
         self._blinks: Deque[tuple] = deque()  # (ts, duration)
@@ -291,8 +322,15 @@ class DrowsinessMonitor:
             self._mar_buf.clear()
             self._end_closure(now, aborted=True)
             self._end_yawn(now, aborted=True)
-            self._nod_start = None
-            self._nod_counted = False
+            # A head turned far enough to lose the face is itself the signal,
+            # so the head episode is NOT reset here -- see _track_face_loss.
+            if self._face_lost_since is None:
+                self._face_lost_since = now
+        if sig.face_found:
+            self._face_lost_since = None
+        self._face_lost_s = (
+            0.0 if self._face_lost_since is None else now - self._face_lost_since
+        )
 
         closed = False
         if sig.face_found:
@@ -301,7 +339,7 @@ class DrowsinessMonitor:
                 self._update_baseline(now, ear)
             self._track_closure(now, closed)
             self._track_yawn(now, self._is_mouth_open(sig, mar))
-            self._track_nod(now, sig.pitch_deg)
+            self._track_head(now, sig)
 
         # PERCLOS only counts time where we actually saw the face.
         if sig.face_found:
@@ -365,20 +403,54 @@ class DrowsinessMonitor:
         self._yawn_start = None
         self._yawn_counted = False
 
-    def _track_nod(self, now: float, pitch: Optional[float]) -> None:
-        if pitch is None:
+    def _update_pitch_baseline(self, now: float, pitch: float) -> None:
+        """Learn this driver's normal forward pitch.
+
+        A dash-mounted camera looks up at the face, so a perfectly attentive
+        driver can sit at -10 deg all day. Judging a chin-drop against an
+        absolute angle would either fire constantly or never; judging it
+        against their own median does neither.
+        """
+        t = self.t
+        self._pitch_samples.append((now, pitch))
+        self._trim(self._pitch_samples, now, t.pitch_baseline_window_s)
+        if len(self._pitch_samples) >= t.pitch_baseline_min_samples:
+            self._pitch_baseline = _median([p for _, p in self._pitch_samples])
+
+    def _classify_head(self, sig: FrameSignals) -> str:
+        """forward | down | turned | tilted -- posture for this frame alone."""
+        t = self.t
+        # Turned or tipped is judged on magnitude, so the sign convention of
+        # the transformation matrix cannot silently invert the rule.
+        if sig.yaw_deg is not None and abs(sig.yaw_deg) >= t.yaw_away_deg:
+            return "turned"
+        if sig.roll_deg is not None and abs(sig.roll_deg) >= t.roll_tilt_deg:
+            return "tilted"
+        if sig.pitch_deg is not None:
+            if self._pitch_baseline is not None:
+                if sig.pitch_deg <= self._pitch_baseline - t.pitch_drop_deg:
+                    return "down"
+            elif sig.pitch_deg <= -t.pitch_drop_abs_deg:
+                return "down"
+        return "forward"
+
+    def _track_head(self, now: float, sig: FrameSignals) -> None:
+        state = self._classify_head(sig)
+        self._head_state = state
+
+        if state == "forward":
+            if sig.pitch_deg is not None:
+                self._update_pitch_baseline(now, sig.pitch_deg)
+            self._head_start = None
+            self._head_counted = False
             return
-        # Negative pitch = chin toward chest.
-        if pitch <= -self.t.nod_pitch_deg:
-            if self._nod_start is None:
-                self._nod_start = now
-                self._nod_counted = False
-            elif not self._nod_counted and now - self._nod_start >= self.t.nod_min_s:
-                self._events.append(Event("nod", self._nod_start, now))
-                self._nod_counted = True
-        else:
-            self._nod_start = None
-            self._nod_counted = False
+
+        if self._head_start is None:
+            self._head_start = now
+            self._head_counted = False
+        elif not self._head_counted and now - self._head_start >= self.t.head_drop_s:
+            self._events.append(Event(f"head_{state}", self._head_start, now))
+            self._head_counted = True
 
     # -- scoring -----------------------------------------------------------
 
@@ -396,7 +468,7 @@ class DrowsinessMonitor:
         recent = [e for e in self._events if now - e.end <= t.event_recency_s]
         microsleeps = [e for e in recent if e.kind in ("microsleep", "long_closure")]
         long_closures = [e for e in recent if e.kind == "long_closure"]
-        nods = [e for e in recent if e.kind == "nod"]
+        head_events = [e for e in recent if e.kind.startswith("head_")]
         yawns = [e for e in self._events
                  if e.kind == "yawn" and now - e.end <= t.yawn_window_s]
 
@@ -407,11 +479,13 @@ class DrowsinessMonitor:
 
         closure_s = (now - self._closure_start) if self._closure_start else 0.0
         yawn_s = (now - self._yawn_start) if self._yawn_start else 0.0
+        head_s = (now - self._head_start) if self._head_start else 0.0
+        lost_s = self._face_lost_s
 
         score = 0.0
         reasons = []
 
-        # Eyes shut right now is the single strongest live signal.
+        # --- 1. eyes shut for a while -------------------------------------
         if closure_s >= t.long_closure_s:
             score += 80.0
             reasons.append(f"eyes closed {closure_s:.1f}s")
@@ -426,37 +500,62 @@ class DrowsinessMonitor:
             score += min(45.0, 22.0 * len(microsleeps))
             reasons.append(f"{len(microsleeps)} microsleep(s) in last 30s")
 
-        perclos_ready = seen >= t.perclos_min_observed_s
-        if perclos_ready and perclos >= t.perclos_drowsy:
-            score += 35.0
-            reasons.append(f"PERCLOS {perclos:.0%}")
-        elif perclos_ready and perclos >= t.perclos_mild:
-            score += 18.0
-            reasons.append(f"PERCLOS {perclos:.0%}")
+        # --- 2. head posture ----------------------------------------------
+        # A driver dozing off drops their chin or lets their head roll to one
+        # side, and the eyes are usually invisible by then. This has to be a
+        # primary signal, not a tie-breaker.
+        head_label = {"down": "head dropped", "turned": "head turned away",
+                      "tilted": "head tilted over"}
+        if head_s >= t.head_drop_bad_s and self._head_state != "forward":
+            score += 80.0
+            reasons.append(f"{head_label[self._head_state]} {head_s:.1f}s")
+        elif head_s >= t.head_drop_s and self._head_state != "forward":
+            score += 55.0
+            reasons.append(f"{head_label[self._head_state]} {head_s:.1f}s")
+        elif head_events:
+            score += 30.0
+            reasons.append("head posture lapse recently")
 
+        # --- 3. face not visible at all ------------------------------------
+        # Losing the face for seconds means the head is turned right away or
+        # the driver has slumped out of frame. Reporting UNKNOWN there would
+        # go quiet at the exact moment it matters.
+        if lost_s >= t.face_lost_bad_s:
+            score += 75.0
+            reasons.append(f"face not visible {lost_s:.0f}s - head away?")
+        elif lost_s >= t.face_lost_alert_s:
+            score += 45.0
+            reasons.append(f"face not visible {lost_s:.1f}s")
+
+        # --- 4. mouth fully open for a long time ---------------------------
+        if yawn_s >= t.yawn_min_s:
+            score += 50.0
+            reasons.append(f"mouth wide open {yawn_s:.1f}s")
         if len(yawns) >= t.yawn_drowsy_count:
             score += 25.0
             reasons.append(f"{len(yawns)} yawns in {int(t.yawn_window_s/60)} min")
         elif yawns:
-            score += 10.0 * len(yawns)
+            score += 12.0 * len(yawns)
             reasons.append(f"{len(yawns)} yawn(s)")
 
-        if yawn_s >= t.yawn_min_s:
-            score += 8.0
-            reasons.append("yawning now")
+        # --- 5. PERCLOS, capped so it cannot reach DROWSY on its own -------
+        perclos_ready = seen >= t.perclos_min_observed_s
+        if perclos_ready and perclos >= t.perclos_drowsy:
+            score += 25.0
+            reasons.append(f"PERCLOS {perclos:.0%}")
+        elif perclos_ready and perclos >= t.perclos_mild:
+            score += 15.0
+            reasons.append(f"PERCLOS {perclos:.0%}")
 
-        if nods:
-            score += 20.0
-            reasons.append("head nodding")
-
-        # Slow, heavy blinks are an early fatigue marker even before PERCLOS moves.
-        if avg_blink >= 0.30 and len(blink_durs) >= 4:
-            score += 10.0
-            reasons.append(f"slow blinks ({avg_blink*1000:.0f}ms avg)")
+        # Blink rate and blink duration are reported but deliberately not
+        # scored: ordinary blinking must never raise an alert.
 
         score = max(0.0, min(100.0, score))
 
-        if face_ratio < t.face_required_ratio:
+        # A brief patch of lost detection means "I cannot tell". A sustained
+        # one was already scored above as a head-away alert, so it must not be
+        # silenced here.
+        if face_ratio < t.face_required_ratio and lost_s < t.face_lost_alert_s:
             level = "UNKNOWN"
             reasons = ["face not visible"]
             score = 0.0
@@ -489,6 +588,13 @@ class DrowsinessMonitor:
             mar=round(mar, 4) if mar is not None else None,
             ear_baseline=round(self._ear_baseline, 4),
             pitch_deg=round(sig.pitch_deg, 1) if sig.pitch_deg is not None else None,
+            yaw_deg=round(sig.yaw_deg, 1) if sig.yaw_deg is not None else None,
+            roll_deg=round(sig.roll_deg, 1) if sig.roll_deg is not None else None,
+            pitch_baseline=(round(self._pitch_baseline, 1)
+                            if self._pitch_baseline is not None else None),
+            head_state=self._head_state,
+            head_drop_s=round(head_s, 2),
+            face_lost_s=round(lost_s, 2),
             face_found=sig.face_found,
             face_visible_ratio=round(face_ratio, 3),
             session_s=round(now - (self._first_ts or now), 2),
