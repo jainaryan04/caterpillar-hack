@@ -1,6 +1,6 @@
 DATASET VALIDATION REPORT
-Seed dataset: C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\data\seed_dataset.csv (9000 rows)
-Synthetic dataset: C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\data\prediction_dataset.csv (30000 rows)
+Seed dataset: C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\Prediction\data\seed_dataset.csv (9000 rows)
+Synthetic dataset: C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\Prediction\data\prediction_dataset.csv (30000 rows)
 
 ======================================================================
 1. INTEGRITY CHECKS
