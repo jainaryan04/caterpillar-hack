@@ -77,6 +77,10 @@ class Config:
     wake_word: bool  # only listen after "Hey Cat"
     wake_timeout_secs: float  # stay awake for follow-ups this long after the last activity
 
+    # HTTP API for the phone app (cat/server.py)
+    http_host: str
+    http_port: int
+
 
 def load_config() -> Config:
     llm_provider = os.getenv("CAT_LLM_PROVIDER", "cerebras").lower()
@@ -118,4 +122,6 @@ def load_config() -> Config:
         echo_guard=_env_bool("CAT_ECHO_GUARD", True),
         wake_word=_env_bool("CAT_WAKE_WORD", True),
         wake_timeout_secs=_env_float("CAT_WAKE_TIMEOUT_SECS", 10),
+        http_host=os.getenv("CAT_HTTP_HOST", "0.0.0.0"),
+        http_port=int(_env_float("CAT_HTTP_PORT", 8765)),
     )

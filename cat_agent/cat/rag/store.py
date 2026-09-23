@@ -33,13 +33,13 @@ HEDGE_AFTER_SECS = 1.0
 REQUEST_TIMEOUT_SECS = 4.0
 
 
-async def _hedged(make_call, what: str):
-    """Run make_call(); if it's slow, race a second copy against it."""
+async def hedged(make_call, what: str, after: float = HEDGE_AFTER_SECS):
+    """Run make_call(); if it takes longer than `after` seconds, race a second copy against it."""
     tasks = [asyncio.ensure_future(make_call())]
     try:
-        done, _ = await asyncio.wait(tasks, timeout=HEDGE_AFTER_SECS)
+        done, _ = await asyncio.wait(tasks, timeout=after)
         if not done:
-            logger.debug(f"{what} slow (>{HEDGE_AFTER_SECS}s), sending a backup request")
+            logger.debug(f"{what} slow (>{after}s), sending a backup request")
             tasks.append(asyncio.ensure_future(make_call()))
         pending, error = set(tasks), None
         while pending:
@@ -127,7 +127,7 @@ class ManualStore:
         alpha = self._cfg.rag_alpha if alpha is None else alpha
         t0 = time.perf_counter()
 
-        dense = (await _hedged(lambda: self.embed([query]), "embedding"))[0]
+        dense = (await hedged(lambda: self.embed([query]), "embedding"))[0]
         t_embed = time.perf_counter()
         sparse = self.bm25.encode_query(query)
 
@@ -137,7 +137,7 @@ class ManualStore:
             sparse_vector = {"indices": sparse["indices"], "values": [v * (1 - alpha) for v in sparse["values"]]}
 
         index = await self._async_index()
-        response = await _hedged(
+        response = await hedged(
             lambda: index.query(
                 vector=dense,
                 sparse_vector=sparse_vector,

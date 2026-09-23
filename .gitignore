@@ -13,3 +13,18 @@ out/
 cat_agent/data/manuals/*.pdf
 cat_agent/data/manuals/images/
 cat_agent/data/manuals/pages/
+cat_agent/data/manuals/chunks.json
+# Videos: our two generated videos (controls-tour, start-to-finish) are committed.
+# Caterpillar's official video, and frames taken from it, are not (public repo):
+# see cat_agent/README.md to download and index it locally.
+cat_agent/data/videos/cat-320d-overview.mp4
+cat_agent/data/videos/cat-320d-overview/
+cat_agent/data/videos/_cache/
+cat_agent/data/videos/_source/
+cat_agent/data/videos/_callouts/
+cat_agent/data/videos/*/frame-*.jpg
+cat_agent/data/references/*.jpg
+cat_agent/data/references/*.png
+cat_agent/data/test_photos/cat-video-*.jpg
+cat_agent/data/test_photos/_*.jpg
+cat_agent/data/screen/

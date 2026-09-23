@@ -1,0 +1,248 @@
+{
+ "video_id": "start-to-finish",
+ "title": "Cat 320D: Start to Finish",
+ "source": "generated from the Cat 320D Operation and Maintenance Manual (SEBU8053-20)",
+ "duration": 106.32,
+ "width": 1280,
+ "height": 720,
+ "url": "/videos/start-to-finish.mp4",
+ "subtitles": "/videos/start-to-finish.vtt",
+ "poster": "/videos/start-to-finish/poster.jpg",
+ "segments": [
+  {
+   "start": 0.0,
+   "end": 7.04,
+   "kind": "title",
+   "caption": "Cat 320D: Start to Finish",
+   "transcript": "From climbing on to leaving the machine: the basic steps from the Cat 320D manual.",
+   "image": null,
+   "frame": null,
+   "controls": [],
+   "also_in_view": [],
+   "picture_legend": {},
+   "manual": []
+  },
+  {
+   "start": 7.04,
+   "end": 16.92,
+   "kind": "picture",
+   "caption": "Getting on · manual page 85",
+   "transcript": "Face the machine when you get on or off, and keep three-point contact with the steps and handholds. Never mount or dismount a moving machine.",
+   "image": "g00037860",
+   "frame": "frame-01.jpg",
+   "controls": [],
+   "also_in_view": [],
+   "picture_legend": {},
+   "manual": [
+    {
+     "title": "Operation Section > Mounting and Dismounting",
+     "page": 85
+    }
+   ]
+  },
+  {
+   "start": 16.92,
+   "end": 26.12,
+   "kind": "picture",
+   "caption": "Fasten the seat belt · manual page 94",
+   "transcript": "Pull the belt out of the retractor in a continuous motion, fasten the catch into the buckle, and position the belt low across your lap.",
+   "image": "g00867598",
+   "frame": "frame-02.jpg",
+   "controls": [],
+   "also_in_view": [],
+   "picture_legend": {},
+   "manual": [
+    {
+     "title": "Operation Section > Seat Belt > Seat Belt Adjustment for Retractable Seat Belts",
+     "page": 94
+    }
+   ]
+  },
+  {
+   "start": 26.12,
+   "end": 33.16,
+   "kind": "picture",
+   "caption": "Release the seat belt · manual page 94",
+   "transcript": "To release it, push the release button on the buckle. The belt retracts automatically.",
+   "image": "g00039113",
+   "frame": "frame-03.jpg",
+   "controls": [],
+   "also_in_view": [],
+   "picture_legend": {},
+   "manual": [
+    {
+     "title": "Operation Section > Seat Belt > Seat Belt Adjustment for Retractable Seat Belts",
+     "page": 94
+    }
+   ]
+  },
+  {
+   "start": 33.16,
+   "end": 38.48,
+   "kind": "picture",
+   "caption": "Battery disconnect switch: ON · manual page 156",
+   "transcript": "Before starting, turn the battery disconnect switch to the ON position.",
+   "image": "g00406959",
+   "frame": "frame-04.jpg",
+   "controls": [],
+   "also_in_view": [],
+   "picture_legend": {},
+   "manual": [
+    {
+     "title": "Operation Section > Engine Starting",
+     "page": 156
+    }
+   ]
+  },
+  {
+   "start": 38.48,
+   "end": 49.32,
+   "kind": "picture",
+   "caption": "Hydraulic lockout: LOCKED · manual page 156",
+   "transcript": "Move the hydraulic lockout control to LOCKED. The engine only starts with the lever in the LOCKED position. Then move the joysticks to HOLD.",
+   "image": "g01075262",
+   "frame": "frame-05.jpg",
+   "controls": [
+    {
+     "callout": "2",
+     "name": "Hydraulic Lockout Control",
+     "looks_like": "hydraulic lockout lever on the left console, left of the seat",
+     "manual_title": "Operation Section > Operator Controls > Hydraulic Lockout Control (2)",
+     "page": 96,
+     "highlighted": false,
+     "box": null
+    }
+   ],
+   "also_in_view": [],
+   "picture_legend": {},
+   "manual": [
+    {
+     "title": "Operation Section > Engine Starting",
+     "page": 156
+    }
+   ]
+  },
+  {
+   "start": 49.32,
+   "end": 63.76,
+   "kind": "picture",
+   "caption": "Starting the engine · manual page 156",
+   "transcript": "Make sure everyone is clear and briefly sound the horn. Turn the engine start switch to ON, set the engine speed dial to 1, then turn the switch to START and release the key once the engine starts.",
+   "image": "g00682776",
+   "frame": "frame-06.jpg",
+   "controls": [
+    {
+     "callout": "8",
+     "name": "Engine Start Switch",
+     "looks_like": "key switch (engine start switch) on the right console",
+     "manual_title": "Operation Section > Operator Controls > Engine Start Switch (8)",
+     "page": 99,
+     "highlighted": false,
+     "box": null
+    },
+    {
+     "callout": "7",
+     "name": "Engine Speed Control",
+     "looks_like": "engine speed dial, round knob on the right console",
+     "manual_title": "Operation Section > Operator Controls > Engine Speed Control (7)",
+     "page": 98,
+     "highlighted": false,
+     "box": null
+    }
+   ],
+   "also_in_view": [],
+   "picture_legend": {
+    "1": "Engine start switch",
+    "2": "Engine speed dial"
+   },
+   "manual": [
+    {
+     "title": "Operation Section > Engine Starting",
+     "page": 156
+    }
+   ]
+  },
+  {
+   "start": 63.76,
+   "end": 74.48,
+   "kind": "picture",
+   "caption": "Stopping the engine · manual page 188",
+   "transcript": "After working under load, stop the machine and run the engine at low idle for five minutes. Then turn the engine start switch to OFF and remove the key.",
+   "image": "g00683306",
+   "frame": "frame-07.jpg",
+   "controls": [
+    {
+     "callout": "8",
+     "name": "Engine Start Switch",
+     "looks_like": "key switch (engine start switch) on the right console",
+     "manual_title": "Operation Section > Operator Controls > Engine Start Switch (8)",
+     "page": 99,
+     "highlighted": false,
+     "box": null
+    }
+   ],
+   "also_in_view": [],
+   "picture_legend": {},
+   "manual": [
+    {
+     "title": "Operation Section > Stopping the Engine",
+     "page": 188
+    }
+   ]
+  },
+  {
+   "start": 74.48,
+   "end": 85.24,
+   "kind": "picture",
+   "caption": "If the engine won't stop · manual page 188",
+   "transcript": "If the engine does not stop, use the engine stop control below the left side of the operator seat: lift the cover and push the switch upward.",
+   "image": "g01073837",
+   "frame": "frame-08.jpg",
+   "controls": [],
+   "also_in_view": [],
+   "picture_legend": {},
+   "manual": [
+    {
+     "title": "Operation Section > Stopping the Engine > Engine Stop Control",
+     "page": 188
+    }
+   ]
+  },
+  {
+   "start": 85.24,
+   "end": 97.84,
+   "kind": "picture",
+   "caption": "Leaving the machine · manual page 189",
+   "transcript": "Dismount facing the machine, using both hands on the steps and handholds. Then clean any debris out of the engine compartment and the front bottom guard to avoid a fire hazard.",
+   "image": "g00037860",
+   "frame": "frame-09.jpg",
+   "controls": [],
+   "also_in_view": [],
+   "picture_legend": {},
+   "manual": [
+    {
+     "title": "Operation Section > Leaving the Machine",
+     "page": 189
+    }
+   ]
+  },
+  {
+   "start": 97.84,
+   "end": 106.32,
+   "kind": "picture",
+   "caption": "Battery disconnect switch: OFF · manual page 189",
+   "transcript": "Finally, turn the battery disconnect switch to OFF. If you leave the machine for a month or longer, remove the key.",
+   "image": "g00406959",
+   "frame": "frame-10.jpg",
+   "controls": [],
+   "also_in_view": [],
+   "picture_legend": {},
+   "manual": [
+    {
+     "title": "Operation Section > Leaving the Machine",
+     "page": 189
+    }
+   ]
+  }
+ ]
+}

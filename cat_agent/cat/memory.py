@@ -8,8 +8,9 @@ pages on screen without searching again.
 Process-wide, like the manual store: one operator per Cat process.
 """
 
+import time
 from collections import deque
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -20,6 +21,7 @@ class ManualLookup:
     page: int
     page_end: int
     image_id: str | None
+    at: float = field(default_factory=time.monotonic)  # when Cat answered
 
 
 class ManualMemory:

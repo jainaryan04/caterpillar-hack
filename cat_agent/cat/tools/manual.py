@@ -14,21 +14,36 @@ from cat.display import show_manual_pages
 from cat.memory import get_manual_memory
 from cat.rag.pages import page_count, render_pages
 from cat.reply import reply_directly
+from cat.screen import LOCAL_SESSION, get_screen_store
 
 
 async def open_manual(params: FunctionCallParams, page: int = 0):
     """Open the machine's manual on the operator's screen, at the pages a manual \
-answer came from. Use when the operator asks to see it after a manual answer: \
-"open it", "show me that", "show me the page", "open the manual".
+answer came from, or at what's on their screen (a paused video or a photo) if \
+that is newer. Use when the operator asks to see it: "open it", "show me that", \
+"show me the page", "open the manual for this".
 
     Args:
-        page: 0 (the default) opens the pages of the most recent manual answer. \
-To open an earlier answer, pass one of its manual_pages; or pass a page number \
-the operator asks for.
+        page: 0 (the default) opens what the operator means now: what's on their \
+screen or the most recent manual answer, whichever is newer. Pass 0 for "this" \
+or "it". To open an earlier answer, pass one of its manual_pages; or pass a page \
+number the operator asks for.
     """
     memory = get_manual_memory()
     lookup = memory.on_page(page) if page else memory.last()
-    if lookup:
+    # Paused on a video or sent a photo since the last answer: "open the manual
+    # for this" means what's on the screen now, not the previous answer.
+    view = get_screen_store().get(LOCAL_SESSION)
+    screen_is_newer = view is not None and not page and (lookup is None or view.created > lookup.at)
+    on_screen = view.manual_pages() if screen_is_newer else None
+    if screen_is_newer and on_screen is None:
+        spoken = "This part isn't from a specific page of the manual. Pause on a control or a step and ask me again."
+        await reply_directly(params, spoken, {"opened": None, "reason": "nothing from the manual on screen"})
+        return
+    if on_screen:
+        first, last, topic = on_screen
+        last = min(last, first + 1)  # at most two pages side by side
+    elif lookup:
         first, last, topic = lookup.page, lookup.page_end, lookup.topic
     elif page:
         pages_in_manual = await asyncio.to_thread(page_count)
