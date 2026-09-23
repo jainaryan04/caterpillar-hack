@@ -74,6 +74,8 @@ class Config:
     rag_alpha: float  # 1.0 = meaning only, 0.0 = keywords only
     show_images_locally: bool  # open manual pictures on this computer too
     echo_guard: bool  # ignore Cat's own voice coming back through laptop speakers
+    wake_word: bool  # only listen after "Hey Cat"
+    wake_timeout_secs: float  # stay awake for follow-ups this long after the last activity
 
 
 def load_config() -> Config:
@@ -114,4 +116,6 @@ def load_config() -> Config:
         rag_alpha=_env_float("CAT_RAG_ALPHA", 0.8),
         show_images_locally=_env_bool("CAT_SHOW_IMAGES_LOCALLY", True),
         echo_guard=_env_bool("CAT_ECHO_GUARD", True),
+        wake_word=_env_bool("CAT_WAKE_WORD", True),
+        wake_timeout_secs=_env_float("CAT_WAKE_TIMEOUT_SECS", 10),
     )

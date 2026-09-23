@@ -109,4 +109,6 @@ become the tool description the LLM sees.
 | `CAT_RAG_TOP_K` | `5` | Manual passages given to the machine expert. |
 | `CAT_RAG_ALPHA` | `0.8` | 1 = meaning only, 0 = keywords only. |
 | `CAT_ECHO_GUARD` | `true` | Ignore Cat's own voice echoing through laptop speakers (see `cat/echo_guard.py`). With headphones set `false` for faster barge-in. |
+| `CAT_WAKE_WORD` | `true` | Only listen after "Hey Cat", one request at a time: Cat sleeps again after each answer (see `cat/wake_word.py`). |
+| `CAT_WAKE_TIMEOUT_SECS` | `10` | After a bare "Hey Cat" (Cat says "Yes?"), how long it waits for the question. |
 | `CAT_SHOW_IMAGES_LOCALLY` | `true` | Also open manual pictures on this computer (until the app exists). |

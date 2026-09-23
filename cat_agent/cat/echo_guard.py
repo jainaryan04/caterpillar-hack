@@ -93,7 +93,10 @@ class _Said:
 
 
 class EchoGuard:
-    def __init__(self):
+    def __init__(self, ignore_words: set[str] = frozenset()):
+        # Words that never count as echo: the wake phrase ("hey cat"). Cat says
+        # it in its greeting, and the operator's "Hey Cat" must still get through.
+        self._ignore = ignore_words
         self._spoken: deque[_Said] = deque()
 
     def remember(self, text: str) -> _Said:
@@ -102,7 +105,7 @@ class EchoGuard:
         return said
 
     def is_echo(self, text: str) -> bool:
-        words = _words(text)
+        words = [w for w in _words(text) if w not in self._ignore]
         if not words:
             return False
         cutoff = time.monotonic() - MEMORY_SECS

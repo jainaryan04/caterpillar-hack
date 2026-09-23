@@ -19,9 +19,11 @@ from cat.prompts import SYSTEM_PROMPT
 def make_stt(cfg: Config) -> STTService:
     # Streams mic audio to Deepgram over a websocket, so the transcript is ready
     # the moment you stop talking.
+    # With the wake word on, boost "Cat" so "Hey Cat" isn't heard as "Hey Kat" / "ACAP".
+    keyterm = ["Cat"] if cfg.wake_word else None
     return DeepgramSTTService(
         api_key=cfg.deepgram_api_key,
-        settings=DeepgramSTTService.Settings(model=cfg.stt_model),
+        settings=DeepgramSTTService.Settings(model=cfg.stt_model, keyterm=keyterm),
     )
 
 

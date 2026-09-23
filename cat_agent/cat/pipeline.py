@@ -28,7 +28,7 @@ from pipecat.processors.aggregators.llm_response_universal import (
 from pipecat.processors.audio.vad_processor import VADProcessor
 from pipecat.transports.base_transport import BaseTransport
 from pipecat.turns.user_start import MinWordsUserTurnStartStrategy
-from pipecat.turns.user_turn_strategies import UserTurnStrategies
+from pipecat.turns.user_turn_strategies import UserTurnStrategies, default_user_turn_start_strategies
 from pipecat.turns.user_mute import (
     AlwaysUserMuteStrategy,
     FunctionCallUserMuteStrategy,
@@ -41,6 +41,7 @@ from cat.prompts import GREETING_INSTRUCTION
 from cat.rag.store import get_store
 from cat.services import make_llm, make_stt, make_tts
 from cat.tools import TOOLS
+from cat.wake_word import WAKE_WORDS, CatWakeStrategy, strip_wake_phrase
 
 
 def build_worker(transport: BaseTransport, cfg: Config) -> PipelineWorker:
@@ -77,12 +78,20 @@ def build_worker(transport: BaseTransport, cfg: Config) -> PipelineWorker:
     # Echo guard (laptop speakers): drop transcripts of Cat's own voice, and
     # start the operator's turn from recognised words rather than raw sound, so
     # echo can't interrupt Cat. See cat/echo_guard.py.
-    turn_strategies = None
+    start_strategies = default_user_turn_start_strategies()
     echo_filter = speech_recorder = None
     if cfg.echo_guard:
-        guard = EchoGuard()
+        guard = EchoGuard(ignore_words=WAKE_WORDS if cfg.wake_word else frozenset())
         echo_filter, speech_recorder = EchoFilter(guard), BotSpeechRecorder(guard)
-        turn_strategies = UserTurnStrategies(start=[MinWordsUserTurnStartStrategy(min_words=2)])
+        start_strategies = [MinWordsUserTurnStartStrategy(min_words=2)]
+
+    # Wake word: nothing reaches the LLM until "Hey Cat" (see cat/wake_word.py).
+    # It must come first: while asleep it blocks the strategies after it.
+    wake = None
+    if cfg.wake_word:
+        wake = CatWakeStrategy(timeout=cfg.wake_timeout_secs)
+        start_strategies = [wake, *start_strategies]
+    turn_strategies = UserTurnStrategies(start=start_strategies)
 
     user_aggregator, assistant_aggregator = LLMContextAggregatorPair(
         context,
@@ -119,6 +128,8 @@ def build_worker(transport: BaseTransport, cfg: Config) -> PipelineWorker:
     @user_aggregator.event_handler("on_user_turn_started")
     async def on_user_turn_started(aggregator, strategy):
         logger.info("(you started talking)")
+        if wake:
+            wake.user_turn_started()
         manual.warm_connections()  # so a manual search after this turn starts on warm connections
 
     @user_aggregator.event_handler("on_user_turn_stopped")
@@ -126,13 +137,22 @@ def build_worker(transport: BaseTransport, cfg: Config) -> PipelineWorker:
         logger.info(f"YOU:    {message.content}")
         # Start the manual search now, while the LLM is still deciding whether
         # it needs the manual. Reused if it does; ignored if it doesn't.
-        manual.prefetch(message.content)
+        manual.prefetch(strip_wake_phrase(message.content))
+        if wake:
+            wake.user_turn_finished(message.content)
 
     @llm.event_handler("on_function_calls_started")
     async def on_function_calls_started(service, function_calls):
         # Fill the ~1-2s manual lookup with speech instead of silence.
+        if wake:
+            wake.reply_started()  # back to sleep while Cat works on the request
         if any(fc.function_name == "ask_machine_expert" for fc in function_calls):
             await llm.push_frame(TTSSpeakFrame("Let me check the manual.", append_to_context=False))
+
+    @assistant_aggregator.event_handler("on_assistant_turn_started")
+    async def on_assistant_turn_started(aggregator):
+        if wake:
+            wake.reply_started()  # back to sleep once Cat starts answering
 
     @assistant_aggregator.event_handler("on_assistant_turn_stopped")
     async def on_assistant_turn_stopped(aggregator, message):
@@ -141,12 +161,25 @@ def build_worker(transport: BaseTransport, cfg: Config) -> PipelineWorker:
         suffix = "  [interrupted]" if message.interrupted else ""
         logger.info(f"CAT:    {message.content}{suffix}")
 
+    if wake:
+
+        @wake.event_handler("on_wake_phrase_detected")
+        async def on_wake_phrase_detected(strategy, phrase):
+            logger.info(f"(awake: heard {phrase!r})")
+
+        @wake.event_handler("on_wake_phrase_timeout")
+        async def on_wake_phrase_timeout(strategy):
+            logger.info('(asleep: say "Hey Cat" to talk)')
+
     @worker.event_handler("on_pipeline_started")
     async def on_pipeline_started(worker, frame):
         # Open the OpenAI/Pinecone connections while Cat says hello.
         worker.create_task(manual.warm_up())
         # Cat speaks first.
-        context.add_message({"role": "developer", "content": GREETING_INSTRUCTION})
+        greeting = GREETING_INSTRUCTION
+        if cfg.wake_word:
+            greeting += ' Tell them to say "Hey Cat" whenever they need you.'
+        context.add_message({"role": "developer", "content": greeting})
         await worker.queue_frames([LLMRunFrame()])
 
     return worker
