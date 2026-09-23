@@ -24,7 +24,7 @@ gpu_image = (
     .pip_install(
         "torch==2.5.1",
         "torchvision==0.20.1",
-        "ultralytics==8.3.40",
+        "ultralytics==8.4.160",
         "transformers==4.46.3",
         "accelerate==1.1.1",
         "opencv-python-headless==4.10.0.84",

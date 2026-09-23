@@ -76,6 +76,8 @@ def main():
     p.add_argument("--jpeg-quality", type=int, default=80)
     p.add_argument("--upload-width", type=int, default=960)
     p.add_argument("--record", default=None, help="write the HUD to this mp4")
+    p.add_argument("--headless", action="store_true", help="no window; use with --record")
+    p.add_argument("--max-seconds", type=float, default=None, help="auto-stop after N seconds")
     p.add_argument("--width", type=int, default=1600)
     p.add_argument("--height", type=int, default=940)
     args = p.parse_args()
@@ -91,7 +93,7 @@ def main():
         raise SystemExit(f"cannot reach {endpoint}: {exc}")
 
     driver_src = FrameSource(args.driver_source, loop=True, width=640).start()
-    front_src = FrameSource(args.front_source, loop=True, width=1280).start()
+    front_src = FrameSource(args.front_source, loop=True, width=960).start()
 
     driver_worker = InferenceWorker(
         "driver", driver_src, build_driver_infer(session, endpoint, args),
@@ -112,6 +114,7 @@ def main():
         )
 
     incidents = 0
+    started_at = time.monotonic()
     fps, last_t = 0.0, time.monotonic()
     print("running — press q to quit")
 
@@ -166,8 +169,11 @@ def main():
 
             if writer:
                 writer.write(hud)
-            cv2.imshow("CAT Smart Operator Assistant", hud)
-            if cv2.waitKey(1) & 0xFF == ord("q"):
+            if not args.headless:
+                cv2.imshow("CAT Smart Operator Assistant", hud)
+                if cv2.waitKey(1) & 0xFF == ord("q"):
+                    break
+            if args.max_seconds and time.monotonic() - started_at >= args.max_seconds:
                 break
     except KeyboardInterrupt:
         pass

@@ -88,3 +88,17 @@ component to talk about, the highest-leverage one is a small GRU over a window o
 `[eyeBlinkL, eyeBlinkR, jawOpen, pitch, yaw]` trained on
 [UTA-RLDD](https://www.kaggle.com/datasets/mathiasviborg/uta-rldd-videos-cropped-by-faces) —
 it beats hand-tuned thresholds and trains on CPU in minutes.
+
+## Verifying without Modal
+
+`scripts/mock_server.py` serves the same contract with synthetic responses, so the
+client's HTTP plumbing can be proven before any GPU is involved:
+
+```bash
+python scripts/mock_server.py &
+python -m client.run --endpoint http://127.0.0.1:8777 \
+  --driver-source media/site_builders.mp4 --front-source media/front_workers.mp4 \
+  --headless --max-seconds 15 --record out/demo.mp4
+```
+
+Render cost is ~15 ms/frame (65 fps ceiling), measured on an M-series Mac.

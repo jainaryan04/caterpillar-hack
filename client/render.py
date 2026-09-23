@@ -28,6 +28,24 @@ FONT = cv2.FONT_HERSHEY_DUPLEX
 FONT_S = cv2.FONT_HERSHEY_SIMPLEX
 
 
+_LEGEND_CACHE = {}
+
+
+def _legend_strip(w, h):
+    """Vertical turbo gradient, built once per size.
+
+    This used to call applyColorMap once per row - 360 calls on 1x1 arrays every
+    frame, which was two thirds of the entire HUD render budget.
+    """
+    key = (w, h)
+    strip = _LEGEND_CACHE.get(key)
+    if strip is None:
+        ramp = np.linspace(255, 0, h, dtype=np.uint8).reshape(h, 1)
+        strip = cv2.applyColorMap(np.repeat(ramp, w, axis=1), cv2.COLORMAP_TURBO)
+        _LEGEND_CACHE[key] = strip
+    return strip
+
+
 def _text(img, s, org, scale=0.5, color=TEXT, thickness=1, font=FONT_S):
     cv2.putText(img, s, org, font, scale, color, thickness, cv2.LINE_AA)
 
@@ -49,7 +67,8 @@ def _fit(frame, w, h):
     fh, fw = frame.shape[:2]
     scale = min(w / fw, h / fh)
     nw, nh = int(fw * scale), int(fh * scale)
-    resized = cv2.resize(frame, (nw, nh), interpolation=cv2.INTER_AREA)
+    interp = cv2.INTER_LINEAR if scale > 0.35 else cv2.INTER_AREA
+    resized = cv2.resize(frame, (nw, nh), interpolation=interp)
     ox, oy = (w - nw) // 2, (h - nh) // 2
     canvas[oy:oy + nh, ox:ox + nw] = resized
     return canvas
@@ -174,10 +193,7 @@ def draw_depth(perception, w, h, max_range_m=40.0):
     # Scale legend: near is bright in the encoding, so the bar runs near -> far.
     bar_w, bar_h = 14, h - 60
     bx, by = w - 34, 30
-    for i in range(bar_h):
-        value = int(255 * (1.0 - i / bar_h))
-        colour = cv2.applyColorMap(np.array([[value]], np.uint8), cv2.COLORMAP_TURBO)[0, 0]
-        cv2.line(canvas, (bx, by + i), (bx + bar_w, by + i), tuple(int(c) for c in colour), 1)
+    canvas[by:by + bar_h, bx:bx + bar_w] = _legend_strip(bar_w, bar_h)
     cv2.rectangle(canvas, (bx, by), (bx + bar_w, by + bar_h), EDGE, 1)
     _text(canvas, "0m", (bx - 24, by + 8), 0.36, TEXT)
     _text(canvas, f"{max_range_m:.0f}m", (bx - 30, by + bar_h), 0.36, TEXT)
