@@ -1,0 +1,15 @@
+__pycache__/
+*.pyc
+.venv/
+out/
+# Large binaries, all re-fetchable:
+#   samples/  -> scripts/fetch_samples.sh
+#   models/   -> the curl in the README's "Running without Modal"
+samples/
+models/
+*.mp4
+*.pt
+*.task
+
+# Vendored Modal skill docs installed by `modal skills update` (2.1MB, 212 files).
+.agents/
