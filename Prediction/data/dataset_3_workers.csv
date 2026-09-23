@@ -1,0 +1,31 @@
+worker_id,skills,skill_level,current_fatigue,available_from,available_until
+W001,Surface Excavation; Drilling; Hauling Ore,10,27.6,0,43200
+W002,Drilling; Hauling Ore,6,57.6,60,43200
+W003,Hauling Ore; Aggregate Collection; Surface Excavation,8,43.0,120,42000
+W004,Aggregate Collection; Surface Excavation,8,43.6,180,43200
+W005,Surface Excavation; Drilling; Hauling Ore,9,52.0,0,41400
+W006,Drilling; Hauling Ore; Aggregate Collection,8,45.3,240,43200
+W007,Excavation; Foundation Work; Road Building,8,2.5,0,43200
+W008,Foundation Work; Road Building,10,27.0,60,43200
+W009,Road Building; Site Preparation; Demolition,9,63.8,120,42000
+W010,Site Preparation; Demolition; Material Loading,9,15.4,180,43200
+W011,Demolition; Material Loading; Excavation,5,27.5,0,41400
+W012,Material Loading; Excavation; Site Preparation,9,8.9,240,43200
+W013,Gas Compression Service; Well Servicing; Pipeline Pumping,8,70.3,0,43200
+W014,Well Servicing; Pipeline Pumping,9,73.3,60,43200
+W015,Pipeline Pumping; Well Drilling; Gas Compression Service,9,56.2,120,42000
+W016,Well Drilling; Gas Compression Service,6,26.3,180,43200
+W017,Gas Compression Service; Well Servicing; Pipeline Pumping,9,23.1,0,41400
+W018,Well Servicing; Pipeline Pumping,7,28.4,240,43200
+W019,Cooling System Inspection; Backup Generator Testing; Generator Maintenance,9,24.9,0,43200
+W020,Backup Generator Testing; Generator Maintenance,8,24.3,60,43200
+W021,Generator Maintenance; Emergency Power Deployment; Cooling System Inspection,7,33.6,120,42000
+W022,Emergency Power Deployment; Cooling System Inspection,7,27.6,180,43200
+W023,Cooling System Inspection; Backup Generator Testing; Generator Maintenance,8,32.4,0,41400
+W024,Backup Generator Testing; Generator Maintenance,7,54.8,240,43200
+W025,Tugboat Engine Service; Rail Network Inspection; Locomotive Maintenance,8,39.4,0,43200
+W026,Rail Network Inspection; Locomotive Maintenance,4,22.9,60,43200
+W027,Locomotive Maintenance; Freight Operations; Tugboat Engine Service,8,26.7,120,42000
+W028,Freight Operations; Tugboat Engine Service,5,19.4,180,43200
+W029,Tugboat Engine Service; Rail Network Inspection; Locomotive Maintenance,6,35.6,0,41400
+W030,Rail Network Inspection; Locomotive Maintenance,5,41.5,240,43200

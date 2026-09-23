@@ -1,0 +1,57 @@
+machine_id,machine_type,age_years,engine_temp_c
+M001,Bulldozer,2.24,91.7
+M002,Bulldozer,7.18,105.8
+M003,Bulldozer,5.2,95.8
+M004,Bulldozer,7.75,111.8
+M005,Drilling Rig,8.0,99.3
+M006,Drilling Rig,7.37,93.2
+M007,Emergency Generator,2.56,79.9
+M008,Emergency Generator,2.33,83.2
+M009,Excavator,6.76,103.9
+M010,Excavator,6.46,96.1
+M011,Excavator,9.71,94.0
+M012,Excavator,3.49,104.0
+M013,Excavator,5.27,97.4
+M014,Excavator,12.98,115.0
+M015,Gas Compressor,4.98,100.6
+M016,Gas Compressor,6.04,97.0
+M017,Generator Test Unit,4.1,84.2
+M018,Generator Test Unit,4.52,100.3
+M019,Haul Truck,12.8,97.3
+M020,Haul Truck,2.42,96.6
+M021,Haul Truck,8.56,94.5
+M022,Haul Truck,7.72,88.2
+M023,Haul Truck,8.2,106.1
+M024,Inspection Kit,4.85,79.4
+M025,Inspection Kit,11.45,97.1
+M026,Locomotive,9.33,101.3
+M027,Locomotive,6.74,89.3
+M028,Locomotive,11.19,99.3
+M029,Maintenance Vehicle,7.95,91.4
+M030,Maintenance Vehicle,6.27,84.9
+M031,Marine Service Vessel,1.84,79.7
+M032,Marine Service Vessel,8.19,99.5
+M033,Mobile Crane,4.26,99.7
+M034,Mobile Crane,1.72,86.2
+M035,Mobile Crane,7.83,92.9
+M036,Motor Grader,3.4,92.6
+M037,Motor Grader,11.94,102.1
+M038,Motor Grader,7.74,102.5
+M039,Pipeline Pump,10.42,90.1
+M040,Pipeline Pump,4.76,79.8
+M041,Rail Inspection Vehicle,8.39,87.9
+M042,Rail Inspection Vehicle,6.53,81.2
+M043,Rail Inspection Vehicle,1.47,85.2
+M044,Rotary Drill Rig,13.79,115.0
+M045,Rotary Drill Rig,7.01,86.9
+M046,Rotary Drill Rig,9.17,97.1
+M047,Rotary Drill Rig,3.77,96.5
+M048,Service Truck,2.13,81.6
+M049,Service Truck,12.23,83.3
+M050,Well Service Rig,3.16,88.7
+M051,Well Service Rig,11.74,103.6
+M052,Wheel Loader,9.13,91.3
+M053,Wheel Loader,2.73,94.7
+M054,Wheel Loader,8.01,101.3
+M055,Wheel Loader,11.01,112.6
+M056,Wheel Loader,3.22,114.6
