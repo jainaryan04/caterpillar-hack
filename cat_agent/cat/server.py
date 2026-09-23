@@ -184,6 +184,12 @@ def create_app() -> FastAPI:
     app = FastAPI(title="Cat operator API")
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
     app.include_router(app_router)  # /api/app/...: the operator app's own types (cat/app_api.py)
+    try:
+        from cat.phone_voice import router as phone_voice_router
+    except ImportError as e:  # pipecat-ai[webrtc] (aiortc) not installed
+        logger.warning(f"Phone voice sessions disabled: {e}")
+    else:
+        app.include_router(phone_voice_router)  # /api/offer: the app's voice session (cat/phone_voice.py)
 
     @app.get("/api/videos")
     def list_videos():

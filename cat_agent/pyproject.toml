@@ -3,6 +3,9 @@ name = "cat-agent"
 version = "0.1.0"
 requires-python = ">=3.12"
 dependencies = [
+    # WebRTC for phone voice sessions (cat/phone_voice.py). Not via pipecat-ai[webrtc]:
+    # that extra pins opencv-python-headless<5, which conflicts with ours.
+    "aiortc>=1.14.0,<2",
     "fastapi>=0.141.1",
     "fastembed>=0.8.1",
     "loguru>=0.7.3",
