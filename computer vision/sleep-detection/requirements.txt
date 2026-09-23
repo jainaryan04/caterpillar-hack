@@ -1,0 +1,6 @@
+# Client-side only. The Modal container builds its own dependencies
+# (ultralytics, mediapipe, opencv) from the image spec in modal_app/app.py.
+modal>=1.0
+opencv-python>=4.9
+numpy>=1.24
+requests>=2.31
