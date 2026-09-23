@@ -1,0 +1,180 @@
+DATASET VALIDATION REPORT
+Seed dataset: C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\data\seed_dataset.csv (9000 rows)
+Synthetic dataset: C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\data\prediction_dataset.csv (30000 rows)
+
+======================================================================
+1. INTEGRITY CHECKS
+======================================================================
+Row count: 30000 (expected 30000) -> PASS
+Exactly 10 expected columns in exact order -> PASS
+  Columns: ['Industry', 'Task Type', 'Task Complexity', 'Operator Skill', 'Operator Fatigue Score', 'Machine Age', 'Weather', 'Shift Type', 'Temperature', 'Actual Duration (minutes)']
+Missing values: 0 -> PASS
+Invalid Industry values: 0 -> PASS
+Invalid Weather values: 0 -> PASS
+Invalid Shift Type values: 0 -> PASS
+Task Type <-> Industry mismatches: 0 -> PASS
+Task Complexity within [1, 10]: 0 violations -> PASS
+Operator Skill within [1, 10]: 0 violations -> PASS
+Operator Fatigue Score within [0, 100]: 0 violations -> PASS
+Machine Age within [0, 20]: 0 violations -> PASS
+Temperature within [-25, 55]: 0 violations -> PASS
+Actual Duration <= 0: 0 -> PASS
+Actual Duration extreme outliers (|z|>6): 8 -> WARN
+Max Actual Duration: 851.9 minutes (14.2 hours) -> PASS
+Duplicate row percentage: 0.000% -> PASS
+
+OVERALL INTEGRITY: PASS
+
+======================================================================
+2. DISTRIBUTION VALIDATION
+======================================================================
+
+--- Industry distribution ---
+                   seed_pct  synthetic_pct
+Industry                                  
+Construction          24.24          24.24
+Data Center Power     15.86          15.86
+Marine & Rail         18.70          18.70
+Mining                22.34          22.34
+Oil & Gas             18.86          18.86
+
+--- Task Type distribution ---
+                            seed_pct  synthetic_pct
+Task Type                                          
+Aggregate Collection            3.88           3.88
+Backup Generator Testing        3.42           3.42
+Cooling System Inspection       4.86           4.86
+Demolition                      3.34           3.34
+Drilling                        7.08           7.07
+Emergency Power Deployment      4.79           4.79
+Excavation                      4.44           4.44
+Foundation Work                 5.42           5.42
+Freight Operations              3.28           3.28
+Gas Compression Service         4.24           4.24
+Generator Maintenance           2.79           2.79
+Hauling Ore                     4.87           4.87
+Locomotive Maintenance          3.92           3.92
+Material Loading                3.57           3.57
+Pipeline Pumping                5.13           5.13
+Rail Network Inspection         5.20           5.20
+Road Building                   4.81           4.81
+Site Preparation                2.66           2.66
+Surface Excavation              6.52           6.52
+Tugboat Engine Service          6.30           6.30
+Well Drilling                   3.59           3.59
+Well Servicing                  5.89           5.89
+
+--- Weather distribution ---
+         seed_pct  synthetic_pct
+Weather                         
+Cloudy      26.40          26.74
+Foggy        6.93           7.23
+Rainy       20.17          19.78
+Sunny       46.50          46.25
+
+--- Shift Type distribution ---
+            seed_pct  synthetic_pct
+Shift Type                         
+Day            67.26          66.64
+Night          32.74          33.36
+
+--- Numerical columns: seed vs synthetic ---
+                   column    source   mean  median   std    min    max    q25    q75
+          Task Complexity      seed   5.49    5.00  2.13   1.00  10.00   4.00   7.00
+          Task Complexity synthetic   5.42    5.00  2.20   1.00  10.00   4.00   7.00
+           Operator Skill      seed   7.41    8.00  1.49   2.00  10.00   6.00   9.00
+           Operator Skill synthetic   7.44    8.00  1.51   2.00  10.00   6.00   9.00
+   Operator Fatigue Score      seed  36.05   34.00 18.92   0.40  96.90  21.38  49.30
+   Operator Fatigue Score synthetic  35.95   34.10 18.89   0.40  94.00  21.10  49.20
+              Machine Age      seed   6.37    5.88  3.56   0.02  18.44   3.57   8.72
+              Machine Age synthetic   6.33    5.86  3.53   0.06  18.07   3.54   8.67
+              Temperature      seed  19.86   20.10 10.44 -15.00  48.00  13.40  25.70
+              Temperature synthetic  19.81   20.10 10.49 -13.10  48.00  13.20  26.10
+Actual Duration (minutes)      seed 199.41  191.55 97.16  41.10 851.90 126.30 252.10
+Actual Duration (minutes) synthetic 197.99  190.00 96.28  41.60 851.90 126.30 252.20
+
+======================================================================
+3. RELATIONSHIP VALIDATION
+======================================================================
+
+--- Correlations with Actual Duration (raw, dataset-wide) ---
+Task Complexity              Pearson=+0.356  Spearman=+0.353
+Operator Skill               Pearson=-0.234  Spearman=-0.218
+Operator Fatigue Score       Pearson=+0.086  Spearman=+0.088
+Machine Age                  Pearson=+0.193  Spearman=+0.203
+Temperature                  Pearson=+0.192  Spearman=+0.152
+
+--- Correlations net of Task Type baseline (residualized) ---
+(Task Type sets a strong baseline duration; these show the marginal
+ effect of each feature after removing that baseline effect.)
+Task Complexity              Pearson=+0.622  Spearman=+0.650
+Operator Skill               Pearson=-0.417  Spearman=-0.414
+Operator Fatigue Score       Pearson=+0.164  Spearman=+0.174
+Machine Age                  Pearson=+0.152  Spearman=+0.149
+Temperature                  Pearson=+0.273  Spearman=+0.261
+
+--- Grouped mean / median Actual Duration by Industry ---
+                    mean  median    std  count
+Industry                                      
+Construction       212.3   210.4   84.6   7273
+Data Center Power   90.9    85.8   27.6   4758
+Marine & Rail      220.6   211.2   61.3   5610
+Mining             177.1   168.3   76.5   6702
+Oil & Gas          271.9   243.1  110.8   5657
+
+--- Grouped mean / median Actual Duration by Task Type ---
+                                               mean  median  count
+Industry          Task Type                                       
+Construction      Demolition                  218.5   212.8   1003
+                  Excavation                  204.5   197.5   1333
+                  Foundation Work             255.0   247.6   1627
+                  Material Loading             78.7    76.0   1070
+                  Road Building               284.0   273.6   1443
+                  Site Preparation            180.3   176.3    797
+Data Center Power Backup Generator Testing     76.7    74.7   1027
+                  Cooling System Inspection    71.2    69.1   1457
+                  Emergency Power Deployment  106.1   102.9   1437
+                  Generator Maintenance       116.6   114.0    837
+Marine & Rail     Freight Operations          258.5   252.2    983
+                  Locomotive Maintenance      257.4   250.5   1177
+                  Rail Network Inspection     190.2   184.6   1560
+                  Tugboat Engine Service      203.0   196.6   1890
+Mining            Aggregate Collection         83.3    80.6   1163
+                  Drilling                    242.9   235.0   2122
+                  Hauling Ore                 128.8   125.7   1460
+                  Surface Excavation          197.5   188.6   1957
+Oil & Gas         Gas Compression Service     220.6   212.9   1273
+                  Pipeline Pumping            184.9   182.6   1540
+                  Well Drilling               421.2   406.1   1077
+                  Well Servicing              293.7   284.4   1767
+
+--- Grouped mean Actual Duration by Weather ---
+Weather
+Cloudy    193.1
+Foggy     211.3
+Rainy     206.4
+Sunny     195.1
+
+--- Grouped mean Actual Duration by Shift Type ---
+Shift Type
+Day      197.1
+Night    199.8
+
+--- Relationship direction summary ---
+  Task Complexity ^ -> Duration ^: PASS
+  Operator Skill ^ -> Duration v: PASS
+  Operator Fatigue ^ -> Duration ^: PASS
+  Machine Age ^ -> Duration ^: PASS
+  Higher Temperature -> Duration ^: PASS
+  Foggy > Sunny mean duration: PASS
+  Rainy > Sunny mean duration: PASS
+  Night > Day mean duration: PASS
+
+OVERALL RELATIONSHIP VALIDATION: PASS
+
+======================================================================
+FINAL VERDICT
+======================================================================
+Integrity checks: PASS
+Relationship checks: PASS
+DATASET VALID: YES
