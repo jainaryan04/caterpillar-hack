@@ -30,13 +30,13 @@ REPORT_PATH = BASE_DIR / "reports" / "dataset_validation.txt"
 FINAL_COLUMNS = [
     "Industry", "Task Type", "Task Complexity", "Operator Skill",
     "Operator Fatigue Score", "Machine Age", "Weather", "Shift Type",
-    "Temperature", "Actual Duration (minutes)",
+    "Machine Temperature (C)", "Actual Duration (minutes)",
 ]
 
 CATEGORICAL_COLS = ["Industry", "Task Type", "Weather", "Shift Type"]
 NUMERICAL_COLS = [
     "Task Complexity", "Operator Skill", "Operator Fatigue Score",
-    "Machine Age", "Temperature", "Actual Duration (minutes)",
+    "Machine Age", "Machine Temperature (C)", "Actual Duration (minutes)",
 ]
 
 VALID_INDUSTRIES = {
@@ -45,7 +45,8 @@ VALID_INDUSTRIES = {
 VALID_WEATHER = {"Sunny", "Cloudy", "Rainy", "Foggy"}
 VALID_SHIFT = {"Day", "Night"}
 
-TEMP_HARD_BOUNDS = (-25, 55)
+# Machine engine/coolant temperature, not site air temperature.
+TEMP_HARD_BOUNDS = (70, 115)
 
 
 class Report:
@@ -115,7 +116,7 @@ def check_integrity(r, df, seed_df):
     ok &= in_range("Operator Skill", 1, 10)
     ok &= in_range("Operator Fatigue Score", 0, 100)
     ok &= in_range("Machine Age", 0, 20)
-    ok &= in_range("Temperature", *TEMP_HARD_BOUNDS)
+    ok &= in_range("Machine Temperature (C)", *TEMP_HARD_BOUNDS)
 
     bad_duration = (df["Actual Duration (minutes)"] <= 0).sum()
     r.add(f"Actual Duration <= 0: {bad_duration} -> {'PASS' if bad_duration == 0 else 'FAIL'}")
@@ -171,7 +172,7 @@ def relationship_validation(r, df):
     target = df["Actual Duration (minutes)"]
 
     r.add("\n--- Correlations with Actual Duration (raw, dataset-wide) ---")
-    for col in ["Task Complexity", "Operator Skill", "Operator Fatigue Score", "Machine Age", "Temperature"]:
+    for col in ["Task Complexity", "Operator Skill", "Operator Fatigue Score", "Machine Age", "Machine Temperature (C)"]:
         pearson = df[col].corr(target)
         spearman = df[col].corr(target, method="spearman")
         r.add(f"{col:28s} Pearson={pearson:+.3f}  Spearman={spearman:+.3f}")
@@ -180,7 +181,7 @@ def relationship_validation(r, df):
     r.add("(Task Type sets a strong baseline duration; these show the marginal")
     r.add(" effect of each feature after removing that baseline effect.)")
     resid = df.groupby("Task Type")["Actual Duration (minutes)"].transform(lambda x: x - x.mean())
-    for col in ["Task Complexity", "Operator Skill", "Operator Fatigue Score", "Machine Age", "Temperature"]:
+    for col in ["Task Complexity", "Operator Skill", "Operator Fatigue Score", "Machine Age", "Machine Temperature (C)"]:
         pearson = df[col].corr(resid)
         spearman = df[col].corr(resid, method="spearman")
         r.add(f"{col:28s} Pearson={pearson:+.3f}  Spearman={spearman:+.3f}")
@@ -205,7 +206,7 @@ def relationship_validation(r, df):
         ("Operator Skill ^ -> Duration v", df["Operator Skill"].corr(resid) < -0.05),
         ("Operator Fatigue ^ -> Duration ^", df["Operator Fatigue Score"].corr(resid) > 0.02),
         ("Machine Age ^ -> Duration ^", df["Machine Age"].corr(resid) > 0.02),
-        ("Higher Temperature -> Duration ^", df["Temperature"].corr(resid) > 0.02),
+        ("Hotter machine -> Duration ^", df["Machine Temperature (C)"].corr(resid) > 0.02),
         ("Foggy > Sunny mean duration",
          df.loc[df.Weather == "Foggy", "Actual Duration (minutes)"].mean() >
          df.loc[df.Weather == "Sunny", "Actual Duration (minutes)"].mean()),

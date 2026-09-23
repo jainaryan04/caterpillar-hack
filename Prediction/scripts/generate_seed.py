@@ -11,12 +11,23 @@ Output: data/seed_dataset.csv
 Columns (exactly):
     Industry, Task Type, Task Complexity, Operator Skill,
     Operator Fatigue Score, Machine Age, Weather, Shift Type,
-    Temperature, Actual Duration (minutes)
+    Machine Temperature (C), Actual Duration (minutes)
+
+Task Complexity is derived from a hidden work quantity via
+prediction_service.complexity -- the SAME function the prediction service
+calls at inference time. work_quantity itself is never written out; it is a
+generator-internal variable, exactly like the duration multipliers.
 """
+
+import sys
+from pathlib import Path
 
 import numpy as np
 import pandas as pd
-from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
+from prediction_service.complexity import derive_complexity, sample_quantity  # noqa: E402
 
 RANDOM_SEED = 42
 N_SEED_ROWS = 9000
@@ -35,68 +46,84 @@ OUTPUT_PATH = Path(__file__).resolve().parent.parent / "data" / "seed_dataset.cs
 # Task universe: task-specific baseline duration (minutes) and
 # sensitivity flags used only internally to drive the hidden formula.
 # ----------------------------------------------------------------------
+# `duty` is the thermal duty class of the machine this task type runs on. It
+# mirrors DUTY_BASE in the dataset_4_machines roster (keyed there by machine
+# type, here by the task type that requires it) so a task type's generated
+# Machine Temperature distribution matches the machines it will actually be
+# paired with at scheduling time. Mismatch here means XGBoost clamping later.
 TASKS = {
     "Mining": {
-        "Drilling":              dict(mean=200, std=45, outdoor=True,  visibility=False, equip=True,  skill=True),
-        "Hauling Ore":           dict(mean=95,  std=20, outdoor=True,  visibility=True,  equip=True,  skill=False),
-        "Surface Excavation":    dict(mean=160, std=35, outdoor=True,  visibility=False, equip=True,  skill=True),
-        "Aggregate Collection":  dict(mean=65,  std=15, outdoor=True,  visibility=False, equip=False, skill=False),
+        "Drilling":              dict(mean=200, std=45, outdoor=True,  visibility=False, equip=True,  skill=True,  duty="heavy"),
+        "Hauling Ore":           dict(mean=95,  std=20, outdoor=True,  visibility=True,  equip=True,  skill=False, duty="heavy"),
+        "Surface Excavation":    dict(mean=160, std=35, outdoor=True,  visibility=False, equip=True,  skill=True,  duty="heavy"),
+        "Aggregate Collection":  dict(mean=65,  std=15, outdoor=True,  visibility=False, equip=False, skill=False, duty="heavy"),
     },
     "Construction": {
-        "Site Preparation":  dict(mean=140, std=30, outdoor=True, visibility=False, equip=True,  skill=False),
-        "Excavation":        dict(mean=170, std=35, outdoor=True, visibility=False, equip=True,  skill=True),
-        "Road Building":     dict(mean=240, std=50, outdoor=True, visibility=False, equip=True,  skill=True),
-        "Foundation Work":   dict(mean=220, std=45, outdoor=True, visibility=False, equip=False, skill=True),
-        "Material Loading":  dict(mean=60,  std=15, outdoor=True, visibility=False, equip=True,  skill=False),
-        "Demolition":        dict(mean=180, std=40, outdoor=True, visibility=False, equip=True,  skill=True),
+        "Site Preparation":  dict(mean=140, std=30, outdoor=True, visibility=False, equip=True,  skill=False, duty="heavy"),
+        "Excavation":        dict(mean=170, std=35, outdoor=True, visibility=False, equip=True,  skill=True,  duty="heavy"),
+        "Road Building":     dict(mean=240, std=50, outdoor=True, visibility=False, equip=True,  skill=True,  duty="heavy"),
+        "Foundation Work":   dict(mean=220, std=45, outdoor=True, visibility=False, equip=False, skill=True,  duty="medium"),
+        "Material Loading":  dict(mean=60,  std=15, outdoor=True, visibility=False, equip=True,  skill=False, duty="heavy"),
+        "Demolition":        dict(mean=180, std=40, outdoor=True, visibility=False, equip=True,  skill=True,  duty="heavy"),
     },
     "Oil & Gas": {
-        "Well Drilling":           dict(mean=320, std=60, outdoor=True,  visibility=False, equip=True, skill=True),
-        "Well Servicing":          dict(mean=220, std=45, outdoor=True,  visibility=False, equip=True, skill=True),
-        "Pipeline Pumping":        dict(mean=130, std=25, outdoor=False, visibility=False, equip=True, skill=False),
-        "Gas Compression Service": dict(mean=170, std=35, outdoor=False, visibility=False, equip=True, skill=True),
+        "Well Drilling":           dict(mean=320, std=60, outdoor=True,  visibility=False, equip=True, skill=True,  duty="heavy"),
+        "Well Servicing":          dict(mean=220, std=45, outdoor=True,  visibility=False, equip=True, skill=True,  duty="medium"),
+        "Pipeline Pumping":        dict(mean=130, std=25, outdoor=False, visibility=False, equip=True, skill=False, duty="medium"),
+        "Gas Compression Service": dict(mean=170, std=35, outdoor=False, visibility=False, equip=True, skill=True,  duty="heavy"),
     },
     "Data Center Power": {
-        "Generator Maintenance":       dict(mean=110, std=20, outdoor=False, visibility=False, equip=True,  skill=True),
-        "Backup Generator Testing":    dict(mean=70,  std=15, outdoor=False, visibility=False, equip=False, skill=False),
-        "Emergency Power Deployment":  dict(mean=100, std=20, outdoor=False, visibility=False, equip=True,  skill=True),
-        "Cooling System Inspection":   dict(mean=65,  std=12, outdoor=False, visibility=False, equip=False, skill=False),
+        "Generator Maintenance":       dict(mean=110, std=20, outdoor=False, visibility=False, equip=True,  skill=True,  duty="medium"),
+        "Backup Generator Testing":    dict(mean=70,  std=15, outdoor=False, visibility=False, equip=False, skill=False, duty="light"),
+        "Emergency Power Deployment":  dict(mean=100, std=20, outdoor=False, visibility=False, equip=True,  skill=True,  duty="medium"),
+        "Cooling System Inspection":   dict(mean=65,  std=12, outdoor=False, visibility=False, equip=False, skill=False, duty="light"),
     },
     "Marine & Rail": {
-        "Freight Operations":      dict(mean=200, std=40, outdoor=True,  visibility=True, equip=False, skill=False),
-        "Locomotive Maintenance":  dict(mean=210, std=40, outdoor=False, visibility=False, equip=True, skill=True),
-        "Rail Network Inspection": dict(mean=150, std=30, outdoor=True,  visibility=True, equip=False, skill=False),
-        "Tugboat Engine Service":  dict(mean=160, std=32, outdoor=False, visibility=True, equip=True, skill=True),
+        "Freight Operations":      dict(mean=200, std=40, outdoor=True,  visibility=True, equip=False, skill=False, duty="heavy"),
+        "Locomotive Maintenance":  dict(mean=210, std=40, outdoor=False, visibility=False, equip=True, skill=True,  duty="medium"),
+        "Rail Network Inspection": dict(mean=150, std=30, outdoor=True,  visibility=True, equip=False, skill=False, duty="light"),
+        "Tugboat Engine Service":  dict(mean=160, std=32, outdoor=False, visibility=True, equip=True, skill=True,  duty="medium"),
     },
 }
 
+# ----------------------------------------------------------------------
+# Machine (engine/coolant) temperature. Replaces the old ambient site
+# temperature: ambient depended on WHEN a task was scheduled, which is a
+# scheduler output, so it was circular. Engine temperature is a property of
+# the machine, known at candidate-generation time.
+#
+# These constants are deliberately identical to the ones used to build
+# data/dataset_4_machines.csv. Training range must cover serving range.
+# ----------------------------------------------------------------------
+DUTY_BASE = {"heavy": 93.0, "medium": 87.0, "light": 80.0}
+AGE_TEMP_COEF = 0.55
+TEMP_NOISE_SD = 5.5
+DEGRADED_COOLING_RATE = 0.12
+DEGRADED_COOLING_BUMP = (8.0, 16.0)
+MACHINE_TEMP_BOUNDS = (70.0, 115.0)
+
 INDUSTRY_META = {
     "Mining": dict(
-        temp_mean=18, temp_std=12, temp_min=-10, temp_max=42,
         machine_age_b=4.0,
         weather_probs={"Sunny": 0.45, "Cloudy": 0.25, "Rainy": 0.25, "Foggy": 0.05},
         night_prob=0.30,
     ),
     "Construction": dict(
-        temp_mean=20, temp_std=10, temp_min=-5, temp_max=40,
         machine_age_b=4.5,
         weather_probs={"Sunny": 0.45, "Cloudy": 0.25, "Rainy": 0.25, "Foggy": 0.05},
         night_prob=0.25,
     ),
     "Oil & Gas": dict(
-        temp_mean=25, temp_std=13, temp_min=-15, temp_max=48,
         machine_age_b=3.8,
         weather_probs={"Sunny": 0.50, "Cloudy": 0.25, "Rainy": 0.20, "Foggy": 0.05},
         night_prob=0.35,
     ),
     "Data Center Power": dict(
-        temp_mean=21, temp_std=3, temp_min=12, temp_max=32,
         machine_age_b=6.5,
         weather_probs={"Sunny": 0.55, "Cloudy": 0.30, "Rainy": 0.12, "Foggy": 0.03},
         night_prob=0.38,
     ),
     "Marine & Rail": dict(
-        temp_mean=17, temp_std=9, temp_min=-10, temp_max=38,
         machine_age_b=3.5,
         weather_probs={"Sunny": 0.45, "Cloudy": 0.25, "Rainy": 0.15, "Foggy": 0.15},
         night_prob=0.38,
@@ -141,8 +168,18 @@ def generate_seed(n_rows=N_SEED_ROWS, seed=RANDOM_SEED):
 
         meta = INDUSTRY_META[industry]
 
-        # Task Complexity: covers full 1-10 range, centered, not uniform
-        complexity = np.clip(np.round(rng.normal(5.5, 2.2, size=n)), 1, 10).astype(int)
+        # Task Complexity: derived from a hidden work quantity, NOT drawn as
+        # noise. Two jobs of the same task type now differ in complexity
+        # because they differ in size, which is the whole point -- a 2,400 m3
+        # excavation is not the same job as a 120 m3 one.
+        # work_quantity stays internal and is never written to the CSV.
+        work_quantity = np.empty(n)
+        complexity = np.empty(n, dtype=int)
+        for i in range(n):
+            tt = chosen_tasks[i]
+            q = sample_quantity(rng, industry, tt)
+            work_quantity[i] = q
+            complexity[i] = derive_complexity(industry, tt, q, rng=rng, jitter=True)
 
         # Operator Skill: right-skewed toward 6-9, low values rarer
         skill_raw = rng.beta(5, 2, size=n)
@@ -162,11 +199,23 @@ def generate_seed(n_rows=N_SEED_ROWS, seed=RANDOM_SEED):
         night_prob = meta["night_prob"]
         shift = np.where(rng.random(n) < night_prob, "Night", "Day")
 
-        # Temperature: industry-specific normal distribution, clipped to plausible bounds
-        temperature = np.clip(
-            rng.normal(meta["temp_mean"], meta["temp_std"], size=n),
-            meta["temp_min"], meta["temp_max"],
-        )
+        # Machine Temperature: engine/coolant operating temperature of the
+        # machine running the task. Duty class comes from the task type (which
+        # determines the machine type); older machines run hotter, mildly.
+        duty_base = np.empty(n)
+        for t in task_names:
+            t_idx = np.where(chosen_tasks == t)[0]
+            if len(t_idx):
+                duty_base[t_idx] = DUTY_BASE[TASKS[industry][t]["duty"]]
+
+        machine_temp = duty_base + AGE_TEMP_COEF * machine_age + rng.normal(0, TEMP_NOISE_SD, size=n)
+        # A minority of the fleet has degraded cooling. Modelled explicitly so
+        # the thermal-derating band above ~105 C is populated in training --
+        # the model cannot price a 110 C machine it has never seen, and the
+        # roster in dataset_4_machines.csv definitely contains some.
+        degraded = rng.random(n) < DEGRADED_COOLING_RATE
+        machine_temp = machine_temp + degraded * rng.uniform(*DEGRADED_COOLING_BUMP, size=n)
+        machine_temp = np.clip(machine_temp, *MACHINE_TEMP_BOUNDS)
 
         # ---- Hidden duration generation (never exposed as columns) ----
         base_duration = np.empty(n)
@@ -214,16 +263,23 @@ def generate_seed(n_rows=N_SEED_ROWS, seed=RANDOM_SEED):
 
         shift_mult = np.where(shift == "Night", 1.08, 1.0)
 
-        # Monotonic, accelerating heat-stress effect: comfort point set near the
-        # industry's low end so nearly the whole realistic range sits above it
-        # (hotter conditions -> modestly longer duration, more so at extremes).
-        # Kept monotonic per industry (rather than a symmetric U-shape) so the
-        # rank relationship survives Gaussian-copula-based synthesis, which
-        # can only preserve monotonic dependencies.
-        comfort_point = meta["temp_min"] + 0.2 * (meta["temp_max"] - meta["temp_min"])
-        dev = np.clip(temperature - comfort_point, 0, None)
-        dev = np.minimum(dev, 40)
-        temp_mult = 1 + 0.0020 * dev ** 1.4
+        # Thermal effect of the machine's own operating temperature.
+        # Two-piece and strictly monotonic increasing:
+        #   80-100 C  normal band -- a hotter engine is marginally less
+        #             efficient, so a gentle linear slope (not flat, because a
+        #             flat region carries no rank information and the Gaussian
+        #             copula has nothing to preserve there).
+        #   >100 C    thermal derating -- the ECU pulls power and the operator
+        #             takes cooldown pauses, so the penalty accelerates.
+        # Monotonic by construction. The old ambient version was a symmetric
+        # U-shape (cold AND hot both slowed work) and copula synthesis
+        # destroyed it; an engine is never "too cold", so this shape is a
+        # natural fit rather than a workaround.
+        temp_mult = (
+            1
+            + 0.0012 * np.clip(machine_temp - 80.0, 0, None)
+            + 0.0045 * np.clip(machine_temp - 100.0, 0, None) ** 1.35
+        )
 
         noise = rng.lognormal(mean=0.0, sigma=NOISE_SIGMA, size=n)
 
@@ -249,7 +305,7 @@ def generate_seed(n_rows=N_SEED_ROWS, seed=RANDOM_SEED):
             "Machine Age": np.round(machine_age, 2),
             "Weather": weather,
             "Shift Type": shift,
-            "Temperature": np.round(temperature, 1),
+            "Machine Temperature (C)": np.round(machine_temp, 1),
             "Actual Duration (minutes)": duration,
         })
         rows.append(industry_df)

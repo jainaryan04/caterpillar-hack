@@ -1,0 +1,91 @@
+{
+  "target": "Actual Duration (minutes)",
+  "estimator": "XGBoost",
+  "n_training_rows": 27000,
+  "test_metrics": {
+    "MAE": 11.5016,
+    "RMSE": 16.164,
+    "R2": 0.9659
+  },
+  "feature_order": [
+    "Industry",
+    "Task Type",
+    "Weather",
+    "Shift Type",
+    "Task Complexity",
+    "Operator Skill",
+    "Operator Fatigue Score",
+    "Machine Age",
+    "Machine Temperature (C)"
+  ],
+  "categorical_features": {
+    "Industry": [
+      "Construction",
+      "Data Center Power",
+      "Marine & Rail",
+      "Mining",
+      "Oil & Gas"
+    ],
+    "Task Type": [
+      "Aggregate Collection",
+      "Backup Generator Testing",
+      "Cooling System Inspection",
+      "Demolition",
+      "Drilling",
+      "Emergency Power Deployment",
+      "Excavation",
+      "Foundation Work",
+      "Freight Operations",
+      "Gas Compression Service",
+      "Generator Maintenance",
+      "Hauling Ore",
+      "Locomotive Maintenance",
+      "Material Loading",
+      "Pipeline Pumping",
+      "Rail Network Inspection",
+      "Road Building",
+      "Site Preparation",
+      "Surface Excavation",
+      "Tugboat Engine Service",
+      "Well Drilling",
+      "Well Servicing"
+    ],
+    "Weather": [
+      "Cloudy",
+      "Foggy",
+      "Rainy",
+      "Sunny"
+    ],
+    "Shift Type": [
+      "Day",
+      "Night"
+    ]
+  },
+  "numerical_features": {
+    "Task Complexity": {
+      "dtype": "int64",
+      "min": 1.0,
+      "max": 10.0
+    },
+    "Operator Skill": {
+      "dtype": "int64",
+      "min": 2.0,
+      "max": 10.0
+    },
+    "Operator Fatigue Score": {
+      "dtype": "float64",
+      "min": 0.9,
+      "max": 93.6
+    },
+    "Machine Age": {
+      "dtype": "float64",
+      "min": 0.04,
+      "max": 19.0
+    },
+    "Machine Temperature (C)": {
+      "dtype": "float64",
+      "min": 70.0,
+      "max": 115.0
+    }
+  }
+}

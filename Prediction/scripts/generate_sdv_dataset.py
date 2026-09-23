@@ -68,19 +68,17 @@ FINAL_COLUMNS = [
     "Machine Age",
     "Weather",
     "Shift Type",
-    "Temperature",
+    "Machine Temperature (C)",
     "Actual Duration (minutes)",
 ]
 
 # Realistic bounds used to clip synthesized values (same domain bounds
 # used during seed generation).
-INDUSTRY_TEMP_BOUNDS = {
-    "Mining": (-10, 42),
-    "Construction": (-5, 40),
-    "Oil & Gas": (-15, 48),
-    "Data Center Power": (12, 32),
-    "Marine & Rail": (-10, 38),
-}
+#
+# Machine temperature is a property of the MACHINE, not of the site, so unlike
+# the ambient temperature it replaced it has one global bound rather than a
+# per-industry one. Must match MACHINE_TEMP_BOUNDS in generate_seed.py.
+MACHINE_TEMP_BOUNDS = (70.0, 115.0)
 
 WEATHER_CATEGORIES = {"Sunny", "Cloudy", "Rainy", "Foggy"}
 SHIFT_CATEGORIES = {"Day", "Night"}
@@ -97,7 +95,7 @@ def build_metadata(df_subset: pd.DataFrame) -> SingleTableMetadata:
     metadata.update_column(column_name="Operator Skill", sdtype="numerical", computer_representation="Int64")
     metadata.update_column(column_name="Operator Fatigue Score", sdtype="numerical", computer_representation="Float")
     metadata.update_column(column_name="Machine Age", sdtype="numerical", computer_representation="Float")
-    metadata.update_column(column_name="Temperature", sdtype="numerical", computer_representation="Float")
+    metadata.update_column(column_name="Machine Temperature (C)", sdtype="numerical", computer_representation="Float")
     metadata.update_column(column_name="Actual Duration (minutes)", sdtype="numerical", computer_representation="Float")
 
     return metadata
@@ -126,10 +124,9 @@ def postprocess(df: pd.DataFrame) -> pd.DataFrame:
     df["Operator Fatigue Score"] = df["Operator Fatigue Score"].clip(0, 100).round(1)
     df["Machine Age"] = df["Machine Age"].clip(0, 20).round(2)
 
-    for industry, (lo, hi) in INDUSTRY_TEMP_BOUNDS.items():
-        mask = df["Industry"] == industry
-        df.loc[mask, "Temperature"] = df.loc[mask, "Temperature"].clip(lo, hi)
-    df["Temperature"] = df["Temperature"].round(1)
+    df["Machine Temperature (C)"] = (
+        df["Machine Temperature (C)"].clip(*MACHINE_TEMP_BOUNDS).round(1)
+    )
 
     df["Actual Duration (minutes)"] = df["Actual Duration (minutes)"].clip(lower=5).round(1)
 
