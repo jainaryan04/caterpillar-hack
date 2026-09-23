@@ -184,7 +184,12 @@ End to end by voice (question spoken → answer text ready) it's ~1.1-1.3s, fast
 question (~2s), because there's nothing to search. Cost per question: one Cerebras call; photos and pauses
 cost nothing.
 
-### API for the phone app (`cat/server.py`)
+### API for the phone app
+
+**The operator app should use `/api/app/...`** (`cat/app_api.py`). Those endpoints return the app's own
+types (`AgentResponse`, `ImageAnalysis`, `TrainingVideo`); see **[API.md](API.md)** for the list, examples
+and drop-in TypeScript. Interactive docs are at `/docs`. The lower-level calls below are what the `/ref`
+page and the voice session use (`cat/server.py`):
 
 | Call | Body | Does |
 |---|---|---|

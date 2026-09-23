@@ -179,8 +179,11 @@ async def report_mark(tap=None, circle=None, session_id: str = LOCAL_SESSION) ->
 
 
 def create_app() -> FastAPI:
+    from cat.app_api import router as app_router
+
     app = FastAPI(title="Cat operator API")
     app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
+    app.include_router(app_router)  # /api/app/...: the operator app's own types (cat/app_api.py)
 
     @app.get("/api/videos")
     def list_videos():

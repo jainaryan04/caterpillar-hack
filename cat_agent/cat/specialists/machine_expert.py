@@ -235,6 +235,23 @@ control, button, switch, lever, warning, safety procedure, or maintenance task.
     await say_answer(params, question, answer)
 
 
+def remember_answer(question: str, answer: ExpertAnswer) -> bool:
+    """Keep the pages behind an answer, so "open it" can show them. False if it had none."""
+    if not answer.page:
+        return False
+    get_manual_memory().remember(
+        ManualLookup(
+            question=question,
+            answer=answer.text,
+            topic=answer.topic,
+            page=answer.page,
+            page_end=answer.page_end or answer.page,
+            image_id=answer.image.id if answer.image else None,
+        )
+    )
+    return True
+
+
 async def say_answer(params: FunctionCallParams, question: str, answer: ExpertAnswer, show_picture: bool = True):
     """Show the manual's picture, remember the pages for "open it", and speak the answer."""
     spoken = answer.text
@@ -242,17 +259,7 @@ async def say_answer(params: FunctionCallParams, question: str, answer: ExpertAn
         await show_manual_image(params.llm, answer.image, caption=question)
         spoken += SHOWN_ON_SCREEN
     result = {"answer": spoken, "picture_shown": answer.image.id if answer.image and show_picture else None}
-    if answer.page:
-        get_manual_memory().remember(
-            ManualLookup(
-                question=question,
-                answer=answer.text,
-                topic=answer.topic,
-                page=answer.page,
-                page_end=answer.page_end or answer.page,
-                image_id=answer.image.id if answer.image else None,
-            )
-        )
+    if remember_answer(question, answer):
         result["manual_pages"] = [answer.page, answer.page_end]
     # The answer is already short and voice-ready: speak it without running
     # the voice LLM again.
