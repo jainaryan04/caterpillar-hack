@@ -9,7 +9,7 @@ for known behaviours and assert it reaches the right verdict. Run with:
 import sys
 from pathlib import Path
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "modal_app"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "detector"))
 
 from rules import DrowsinessMonitor, FrameSignals, Thresholds  # noqa: E402
 

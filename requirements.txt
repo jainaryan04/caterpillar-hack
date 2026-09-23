@@ -1,7 +1,0 @@
-# Client (runs on your laptop — no GPU needed, inference is on Modal)
-opencv-python==4.10.0.84
-numpy==1.26.4
-requests==2.32.3
-
-# Deployment
-modal>=1.5.5

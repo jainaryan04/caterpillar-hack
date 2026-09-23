@@ -1,6 +1,7 @@
 """Rule-based drowsiness state machine.
 
-Pure stdlib + numpy so it runs identically on Modal and on a local client.
+Pure stdlib: no model, no camera, no third-party imports, so it is
+directly testable against synthetic traces.
 Everything is driven by wall-clock timestamps rather than frame counts, so the
 verdict is stable whether the camera delivers 8 fps or 30 fps.
 

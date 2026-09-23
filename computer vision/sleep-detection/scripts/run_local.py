@@ -1,9 +1,6 @@
-"""Run the full pipeline locally -- no Modal needed.
+"""Score a recorded clip and optionally burn the verdict onto a copy.
 
     python scripts/run_local.py samples/tired_driver_720p.mp4 --out annotated.mp4
-
-Uses the same FacePipeline and DrowsinessMonitor the container runs, so this
-is a faithful dry run of the deployment and a usable offline fallback.
 """
 
 from __future__ import annotations
@@ -14,7 +11,7 @@ import pathlib
 import sys
 import time
 
-sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "modal_app"))
+sys.path.insert(0, str(pathlib.Path(__file__).resolve().parents[1] / "detector"))
 
 import cv2  # noqa: E402
 
@@ -78,9 +75,6 @@ def main():
     ap.add_argument("--out", default="", help="write an annotated mp4 here")
     ap.add_argument("--json", default="", help="dump the timeline here")
     ap.add_argument("--stride", type=int, default=1)
-    ap.add_argument("--yolo", default=str(pathlib.Path.home() / "Downloads" / "yolov12m-face.pt"))
-    ap.add_argument("--detector", default="mediapipe",
-                    choices=("mediapipe", "yolo", "auto"))
     ap.add_argument("--landmarker", default=str(ROOT / "models" / "face_landmarker.task"))
     args = ap.parse_args()
 
@@ -88,13 +82,12 @@ def main():
     if not src.exists():
         sys.exit(f"{src} not found")
 
-    print("loading models...")
+    if not pathlib.Path(args.landmarker).exists():
+        sys.exit(f"missing {args.landmarker}\nfetch it with:  ./scripts/fetch_model.sh")
+    print("loading model...")
     t0 = time.perf_counter()
-    pipe = FacePipeline(landmarker_path=args.landmarker, yolo_path=args.yolo,
-                        detector=args.detector)
-    print(f"  detector: {pipe.detector_name}  ({time.perf_counter()-t0:.1f}s)")
-    if pipe.yolo_error:
-        print(f"  yolo note: {pipe.yolo_error}")
+    pipe = FacePipeline(landmarker_path=args.landmarker)
+    print(f"  ready ({time.perf_counter()-t0:.1f}s)")
 
     cap = cv2.VideoCapture(str(src))
     if not cap.isOpened():
@@ -108,7 +101,7 @@ def main():
     monitor = DrowsinessMonitor()
     timeline, transitions = [], []
     idx, prev, last = 0, None, None
-    det_ms, lm_ms, scored = 0.0, 0.0, 0
+    lm_ms, scored = 0.0, 0
     t_start = time.perf_counter()
 
     while True:
@@ -119,7 +112,6 @@ def main():
             ts = idx / fps
             out = pipe.measure(frame, ts)
             v = monitor.update(out["signals"])
-            det_ms += out["timing_ms"]["detect"]
             lm_ms += out["timing_ms"]["landmark"]
             scored += 1
             last = (v, out.get("box"), out.get("landmarks"))
@@ -151,8 +143,7 @@ def main():
 
     print(f"\n{scored}/{idx} frames scored in {wall:.1f}s "
           f"({scored/max(wall,1e-6):.1f} fps)")
-    print(f"  detect  {det_ms/max(scored,1):.1f} ms/frame")
-    print(f"  landmark{lm_ms/max(scored,1):6.1f} ms/frame")
+    print(f"  landmark {lm_ms/max(scored,1):.1f} ms/frame")
     print(f"face found      : {len(faces)}/{scored} frames ({len(faces)/max(scored,1):.0%})")
     print(f"drowsy fraction : {len(drowsy)/max(len(timeline),1):.1%}")
     print(f"peak score      : {max((p['score'] for p in timeline), default=0)}")

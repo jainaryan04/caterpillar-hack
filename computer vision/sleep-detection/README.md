@@ -1,31 +1,32 @@
 # Driver Sleep Detection
 
-Rule-based drowsiness detection on Modal. A YOLO face detector finds the
-driver, MediaPipe FaceLandmarker reads the eyes and mouth, and a temporal rule
-engine decides whether the person is actually falling asleep — as opposed to
-blinking, talking, or glancing away.
+Rule-based drowsiness detection that runs entirely on your machine at ~110 fps.
+MediaPipe FaceLandmarker reads the eyes, mouth and head pose; a temporal rule
+engine decides whether the driver is actually falling asleep, as opposed to
+blinking, talking, or glancing at a mirror.
 
-No training required. Every threshold is explicit and tunable in one file.
+No training, no GPU, no network. Every threshold is explicit in one file.
 
 ```
-frame ──▶ YOLO (yolov12m-face.pt) ──▶ crop the driver's face
-                                      │
-                                      ▼
-                       MediaPipe FaceLandmarker (478 pts)
-                       ├── EAR   eye aspect ratio
-                       ├── MAR   mouth aspect ratio
-                       ├── blendshapes: eyeBlink / jawOpen
-                       └── head pose: pitch / yaw / roll
-                                      │
-                                      ▼
-                         DrowsinessMonitor (temporal rules)
-                                      │
-                       ALERT · MILD · DROWSY · CRITICAL
+frame ──▶ MediaPipe FaceLandmarker (478 pts)
+          ├── EAR   eye aspect ratio
+          ├── MAR   mouth aspect ratio
+          ├── blendshapes: eyeBlink / jawOpen
+          └── head pose: pitch / yaw / roll
+                      │
+                      ▼
+        DrowsinessMonitor (temporal rules)
+                      │
+      ALERT · MILD · DROWSY · CRITICAL
 ```
 
-YOLO does detection because it is much more robust than MediaPipe's own face
-detector at a dashcam angle, in poor light, or with a partly occluded face.
-MediaPipe then landmarks a tight crop, which is where it is strongest.
+An earlier version ran a YOLOv12-face detector on Modal to crop the face
+before landmarking. It was removed after measuring it: on the sample clips
+MediaPipe's built-in BlazeFace matched YOLO frame-for-frame at webcam distance
+(100% face-found on `tired_driver`) while running **28x faster** -- 8 ms
+against 230 ms. YOLO only won on a deliberately distant, half-hidden face
+(100% vs 84%). For a driver-facing camera it was paying 28x for nothing, and
+the network hop on top of that.
 
 ## Why a temporal rule engine
 
@@ -82,40 +83,13 @@ Three details that matter in practice:
 ## Setup
 
 ```bash
-pip install -r requirements.txt
-python3 -m modal setup            # opens a browser, one time
-
-python scripts/upload_model.py ~/Downloads/yolov12m-face.pt
-modal deploy modal_app/app.py
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+./scripts/fetch_model.sh          # 3.7 MB FaceLandmarker model
 ```
 
-`upload_model.py` puts the checkpoint in a Modal Volume so the 40 MB file is
-not rebaked into the image on every rebuild.
-
-The app runs **CPU-only by default** (4 cores) because a GPU requires a payment
-method on the Modal account. Detection is ~200 ms/frame that way, which is fine
-for batch scoring and adequate for a ~5 fps live feed. To turn a GPU on:
-
-```bash
-SLEEP_DETECTION_GPU=T4 modal deploy modal_app/app.py
-```
-
-### Running without Modal
-
-```bash
-python3 -m venv .venv && .venv/bin/pip install mediapipe==0.10.35 ultralytics
-curl -fsSL -o models/face_landmarker.task \
-  https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task
-
-.venv/bin/python scripts/run_local.py samples/tired_driver_720p.mp4 --out annotated.mp4
-```
-
-`run_local.py` uses the same `FacePipeline` and `DrowsinessMonitor` the
-container runs, so it is a faithful dry run and a usable offline fallback.
-
-mediapipe is pinned to **0.10.35**, not 1.0.x: the 1.0 line aborts the process
-on macOS (`DrishtiMetalHelper: Service is unavailable`), and keeping one version
-across laptop and container is worth more than being current.
+mediapipe is held below 1.0: the 1.0 line aborts the process on macOS
+(`DrishtiMetalHelper: Service is unavailable`).
 
 ## Test clips
 
@@ -159,94 +133,48 @@ Measured, not assumed — these numbers come from running the clips:
 ## Use
 
 ```bash
-# live webcam with HUD  (q quit, r reset session)
-python scripts/run_webcam.py
+# live webcam  (q quit, r reset session)
+.venv/bin/python scripts/run_webcam.py
 
-# score a recorded clip and burn the verdict onto a copy
-python scripts/run_video.py samples/tired_driver_720p.mp4 --out annotated.mp4
+# record the annotated view
+.venv/bin/python scripts/run_webcam.py --record demo.mp4
 
-# quick one-off without deploying
-modal run modal_app/app.py --video samples/tired_driver_720p.mp4
-modal run modal_app/app.py --image-path face.jpg
+# a camera other than the default
+.venv/bin/python scripts/run_webcam.py --camera 1
+
+# score a recorded clip, burn the verdict onto a copy
+.venv/bin/python scripts/run_local.py samples/tired_driver_720p.mp4 --out out.mp4
 ```
 
-The webcam client captures and draws at full camera rate on the main thread
-while a worker ships frames to Modal, so the preview never stutters waiting on
-the network. Default upload is 640 px JPEG at 10 fps — plenty, since every
-rule is time-based rather than frame-based.
+Capture and display run at full camera rate on the main thread while a worker
+thread does inference, so the preview never stutters.
 
-## HTTP API
-
-`modal deploy` prints three URLs. The current deployment:
-
-```
-POST  https://akshath-r333--sleep-detection-sleepdetector-analyze.modal.run
-POST  https://akshath-r333--sleep-detection-sleepdetector-measure-only.modal.run
-GET   https://akshath-r333--sleep-detection-sleepdetector-health.modal.run
-```
-
-```bash
-curl -X POST https://akshath-r333--sleep-detection-sleepdetector-analyze.modal.run \
-  -H 'Content-Type: application/json' \
-  -d '{"image":"<base64 jpeg>","session_id":"cab-7","timestamp":1727000000.0}'
-```
-
-```jsonc
-{
-  "verdict": {
-    "level": "DROWSY", "score": 73.0, "sleepy": true,
-    "reasons": ["eyes closed 1.4s", "PERCLOS 27%"],
-    "perclos": 0.27, "eyes_closed": true, "closure_s": 1.4,
-    "yawns_in_window": 2, "microsleeps_recent": 1,
-    "blink_rate_per_min": 9.0, "avg_blink_s": 0.31,
-    "ear": 0.11, "ear_baseline": 0.29, "mar": 0.05,
-    "pitch_deg": -8.0, "face_visible_ratio": 0.98, "session_s": 142.6
-  },
-  "box": [312.0, 118.4, 508.2, 366.9, 0.94],
-  "landmarks": { "left_eye": [[x,y],...], "right_eye": [...], "mouth": [...] },
-  "head_pose": { "pitch": -8.0, "yaw": 3.2, "roll": -1.1 },
-  "timing_ms": { "detect": 9.2, "landmark": 6.8 }
-}
-```
-
-| Endpoint | Purpose |
-|---|---|
-| `POST /analyze` | full verdict; server keeps per-`session_id` history |
-| `POST /measure_only` | stateless raw signals; run the rules yourself |
-| `GET /health` | which detector loaded, GPU, active sessions |
-
-Send `"reset": true` on the first frame of a session to clear prior state.
-
-Because session history lives in container memory, the class pins
-`max_containers=1` with `@modal.concurrent(max_inputs=8)` so every frame of a
-session reaches the same container. That is ample for a demo; to scale out,
-use `/measure_only` and run `DrowsinessMonitor` on the client — the rule engine
-is pure Python and imports anywhere.
+The HUD shows the live EAR against the baseline learned for your eyes, the
+head state and angles, and the reasons behind the current score. Blink rate is
+displayed but marked `(not scored)`.
 
 ## Layout
 
 ```
-modal_app/
-  app.py         Modal app: image, volume, endpoints, video batch job
-  pipeline.py    FacePipeline: YOLO + FaceLandmarker (runs local AND remote)
+detector/
+  pipeline.py    MediaPipe FaceLandmarker -> per-frame signals
   landmarks.py   FaceMesh indices -> EAR / MAR / head pose
-  rules.py       DrowsinessMonitor: the temporal state machine (no deps)
+  rules.py       DrowsinessMonitor: the temporal state machine (pure stdlib)
 scripts/
-  upload_model.py   push the YOLO checkpoint to the Modal Volume
+  fetch_model.sh    download the FaceLandmarker model
   fetch_samples.sh  re-download the test clips
   run_webcam.py     live webcam client with HUD
-  run_video.py      batch-score a clip on Modal, render an overlay
-  run_local.py      same pipeline, no Modal
+  run_local.py      batch-score a clip, render an overlay
   test_rules.py     synthetic-trace tests for the rule engine
 ```
 
 ## Tests
 
 ```bash
-python scripts/test_rules.py
+.venv/bin/python scripts/test_rules.py
 ```
 
-12 tests against synthetic EAR/MAR traces — no model, no network. Normal
+18 tests against synthetic EAR/MAR traces — no model, no network. Normal
 blinking stays ALERT; 15 fast blinks are not drowsiness; a 1.5 s closure is a
 microsleep and 4 s is CRITICAL; high PERCLOS escalates; three sustained yawns
 register while speech-length openings do not; a lost face reports UNKNOWN and
@@ -254,13 +182,13 @@ recovers; 8 fps and 30 fps agree; blendshape inputs drive the same rules; the
 score decays back to ALERT; PERCLOS stays out of the score until its window is
 populated; and an occluded mouth is still caught via MAR.
 
-Four real bugs were found this way rather than in production — see
+Several real bugs were found this way rather than in production — see
 *Bugs the tests caught* below.
 
 ## Tuning
 
 Every threshold is in the `Thresholds` dataclass at the top of
-`modal_app/rules.py`. The ones worth touching first:
+`detector/rules.py`. The ones worth touching first:
 
 - `microsleep_s` (1.0) — lower for an earlier alarm, raise to cut false positives
 - `perclos_drowsy` (0.25) — the standard fatigue measure; 0.15 is aggressive
@@ -274,12 +202,6 @@ Yaw and roll are judged on magnitude, so the sign convention of MediaPipe's
 transformation matrix cannot silently invert those rules. Pitch is the one
 signed quantity, and it is compared against a learned baseline rather than
 zero, which absorbs the camera's mounting angle.
-
-## Graceful degradation
-
-If the YOLO checkpoint is missing or fails to load, the app logs the reason and
-falls back to landmarking the full frame instead of crashing. `GET /health`
-reports `detector` and `yolo_error` so you can tell which path is live.
 
 ## Bugs the tests caught
 
