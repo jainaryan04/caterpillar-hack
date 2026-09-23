@@ -34,7 +34,8 @@ Later runs start in 1–2 seconds.
 | `cat/prompts.py` | Cat's personality and rules. |
 | `cat/tools/` | Fast in-process tools. Add a function and list it in `TOOLS`. |
 | `cat/specialists/` | Slower multi-step agents (OpenAI Agents SDK) that the voice LLM calls as tools. |
-| `cat/rag/` | Manual search: PDF parsing, BM25 keywords, OpenAI embeddings + Pinecone. |
+| `cat/rag/` | Manual search: PDF parsing, BM25 keywords, OpenAI embeddings + Pinecone; pictures and page renders. |
+| `cat/memory.py` | What Cat has looked up in the manual this session (for "open it"). |
 | `ingest_manual.py` / `eval_manual.py` | Build the manual index / check retrieval quality and speed. |
 
 ## The machine manual (RAG)
@@ -77,6 +78,20 @@ uv run eval_manual.py            # 18 operator questions: hit rate + search late
 uv run eval_manual.py --sweep    # compare alpha values
 uv run eval_manual.py --answers  # also print the spoken answers
 ```
+
+### "Open it": manual pages on screen
+
+Cat remembers the pages behind each manual answer (`cat/memory.py`). After an answer, "Hey Cat,
+open it" (or "show me that in the manual") calls `open_manual`, which renders those pages (two side by
+side at most) to `data/manuals/pages/` and sends them to the app. "Open the seat belt one again" goes
+back to an earlier answer. No search or extra LLM call, so the pages appear in about 0.1s:
+
+```json
+{"type": "manual-pages", "page": 93, "page_end": 94, "topic": "Seat Belt Adjustment for Non-Retractable Seat Belts",
+ "url": "/manual-pages/page-093-094.png", "width": 1870, "height": 1210}
+```
+
+`/manual-pages/` should serve `data/manuals/pages/`.
 
 ## Add a tool
 

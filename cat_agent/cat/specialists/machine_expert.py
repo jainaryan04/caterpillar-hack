@@ -9,6 +9,7 @@ This is the "agent as a tool" pattern:
       --shows-->  the picture on the operator's screen (see cat/display.py)
       --speaks--> the answer directly (no second voice-LLM call to reword it,
                   which saves ~0.5-0.9s and can't add facts that aren't in the manual).
+      --remembers--> the pages it came from, so "open it" can show them (cat/tools/manual.py)
 
 Retrieval runs *before* the agent, so the usual answer takes one LLM call
 instead of a tool-call round trip. The agent runs on the same provider as the
@@ -31,18 +32,15 @@ from agents import (
 from loguru import logger
 from openai import AsyncOpenAI
 from openai.types.shared import Reasoning
-from pipecat.frames.frames import (
-    FunctionCallResultProperties,
-    LLMFullResponseEndFrame,
-    LLMFullResponseStartFrame,
-    LLMTextFrame,
-)
 from pipecat.services.llm_service import FunctionCallParams
 
 from cat.config import load_config
 from cat.display import show_manual_image
+from cat.memory import ManualLookup, get_manual_memory
 from cat.rag.images import ManualImage, get_image
-from cat.rag.store import MANUAL, format_passages, get_store
+from cat.rag.pages import MAX_PAGES
+from cat.rag.store import MANUAL, Passage, format_passages, get_store
+from cat.reply import reply_directly
 
 # Tracing uploads every agent run to OpenAI's dashboard; keep it off.
 set_tracing_disabled(True)
@@ -96,10 +94,41 @@ def _split_answer(output: str) -> tuple[str, str | None]:
     return output[: match.start()].strip(), None if image_id == "none" else image_id
 
 
+# "That's on page 96", "pages 92 to 94", "pages 10-11"
+_PAGE_REF = re.compile(r"\bpages?\s+(\d+)(?:\s*(?:-|to|and)\s*(\d+))?", re.IGNORECASE)
+
+
 @dataclass
 class ExpertAnswer:
     text: str
     image: ManualImage | None = None
+    page: int | None = None  # where in the manual the answer came from
+    page_end: int | None = None
+    topic: str = ""
+
+
+def _source(text: str, image: ManualImage | None, passages: list[Passage]) -> tuple[int, int, str] | None:
+    """(first page, last page, topic) of the manual section behind an answer."""
+    match = _PAGE_REF.search(text)
+    if match:
+        page = int(match.group(1))
+    elif image:
+        page = image.page
+    else:
+        return None  # the manual didn't cover it
+    # The best-ranked passage on that page gives the topic and its full page range.
+    passage = next((p for p in passages if p.page <= page <= p.page_end), None)
+    if passage is None:
+        end = int(match.group(2)) if match and match.group(2) else page
+        return page, max(end, page), ""
+    # "Operation Section > Travel Alarm Cancel Switch (15)" -> "Travel Alarm Cancel Switch"
+    topic = re.sub(r"\s*\([\d-]+\)$", "", passage.title.split(" > ")[-1])
+    topic = topic.replace("- ", "-")  # "Non- Retractable": hyphen from a wrapped PDF line
+    if passage.page_end - passage.page < MAX_PAGES:
+        return passage.page, passage.page_end, topic
+    # A long topic: the page the answer cites, plus the next one.
+    first = min(page, passage.page_end - 1)
+    return first, first + 1, topic
 
 
 @function_tool
@@ -144,7 +173,11 @@ async def answer_from_manual(question: str) -> ExpertAnswer:
         f"agent {1000 * (time.perf_counter() - t_search):.0f}ms, "
         f"top hit: {passages[0].title if passages else '-'}, picture: {image_id}"
     )
-    return ExpertAnswer(text, image)
+    source = _source(text, image, passages)
+    if source is None:
+        return ExpertAnswer(text, image)
+    page, page_end, topic = source
+    return ExpertAnswer(text, image, page, page_end, topic)
 
 
 async def ask_machine_expert(params: FunctionCallParams, question: str):
@@ -160,10 +193,19 @@ control, button, switch, lever, warning, safety procedure, or maintenance task.
     if answer.image:
         await show_manual_image(params.llm, answer.image, caption=question)
         spoken += SHOWN_ON_SCREEN
-    # The answer is already short and voice-ready: record it as the tool result
-    # without running the voice LLM again, and emit it as if the LLM had said it,
-    # so TTS speaks it and it lands in the conversation as Cat's reply.
     result = {"answer": spoken, "picture_shown": answer.image.id if answer.image else None}
-    await params.result_callback(result, properties=FunctionCallResultProperties(run_llm=False))
-    for frame in (LLMFullResponseStartFrame(), LLMTextFrame(spoken), LLMFullResponseEndFrame()):
-        await params.llm.push_frame(frame)
+    if answer.page:
+        get_manual_memory().remember(
+            ManualLookup(
+                question=question,
+                answer=answer.text,
+                topic=answer.topic,
+                page=answer.page,
+                page_end=answer.page_end or answer.page,
+                image_id=answer.image.id if answer.image else None,
+            )
+        )
+        result["manual_pages"] = [answer.page, answer.page_end]
+    # The answer is already short and voice-ready: speak it without running
+    # the voice LLM again.
+    await reply_directly(params, spoken, result)

@@ -10,6 +10,7 @@ from pipecat.adapters.schemas.direct_function import DirectFunctionWrapper
 import cat  # noqa: F401  (loads .env)
 from cat.specialists.machine_expert import ask_machine_expert
 from cat.tools import TOOLS
+from cat.tools.manual import open_manual
 
 
 class FakeLLM:
@@ -35,6 +36,9 @@ async def main():
 
     print("\nask_machine_expert() -> Pinecone manual search + Agents SDK:")
     await ask_machine_expert(FakeParams(), "What does the travel alarm cancel switch do?")
+
+    print('\nopen_manual() -> "open it": the pages behind that answer:')
+    await open_manual(FakeParams())
 
 
 if __name__ == "__main__":

@@ -11,3 +11,4 @@ out/
 # Cat voice assistant
 cat_agent/data/manuals/*.pdf
 cat_agent/data/manuals/images/
+cat_agent/data/manuals/pages/

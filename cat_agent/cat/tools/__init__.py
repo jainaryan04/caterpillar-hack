@@ -18,8 +18,10 @@ single tool - see cat/specialists/__init__.py.
 
 from cat.specialists.machine_expert import ask_machine_expert
 from cat.tools.basics import get_current_time
+from cat.tools.manual import open_manual
 
 TOOLS = [
     get_current_time,
     ask_machine_expert,  # specialist agent over the official Cat 320D manual
+    open_manual,  # "open it": show the pages behind the last manual answer
 ]

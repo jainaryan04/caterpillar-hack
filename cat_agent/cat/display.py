@@ -8,10 +8,16 @@ as `onServerMessage`):
      "url": "/manual-images/g00867598.png", "width": 497, "height": 310,
      "caption": "Seat belt: fastening"}
 
+"Open it" puts whole manual pages on screen the same way (one or two pages
+side by side in one image):
+
+    {"type": "manual-pages", "page": 94, "page_end": 94, "topic": "Seat Belt",
+     "url": "/manual-pages/page-094.png", "width": 935, "height": 1210}
+
 The app loads `url` from the Cat server, which serves data/manuals/images/
-under /manual-images/. With the local mic/speaker transport there is no app, so
+under /manual-images/ and data/manuals/pages/ under /manual-pages/. With the local mic/speaker transport there is no app, so
 the message goes nowhere; set CAT_SHOW_IMAGES_LOCALLY=true (the default) to
-also open the picture on this computer.
+also open the picture or page on this computer.
 """
 
 import os
@@ -24,8 +30,10 @@ from pipecat.processors.frameworks.rtvi.frames import RTVIServerMessageFrame
 
 from cat.config import load_config
 from cat.rag.images import ManualImage
+from cat.rag.pages import ManualPages
 
 IMAGE_URL_PREFIX = "/manual-images/"
+PAGES_URL_PREFIX = "/manual-pages/"
 
 
 async def show_manual_image(sender: FrameProcessor, image: ManualImage, caption: str) -> None:
@@ -40,12 +48,31 @@ async def show_manual_image(sender: FrameProcessor, image: ManualImage, caption:
     }
     await sender.push_frame(RTVIServerMessageFrame(data=data))
     logger.info(f"SCREEN: manual picture {image.id} (page {image.page}) - {caption}")
+    _open_locally(image.path)
 
-    if load_config().show_images_locally:
-        try:
-            if sys.platform == "win32":
-                os.startfile(image.path)  # opens in the default image viewer
-            else:
-                webbrowser.open(image.path.as_uri())
-        except OSError as e:
-            logger.warning(f"Couldn't open {image.path}: {e}")
+
+async def show_manual_pages(sender: FrameProcessor, pages: ManualPages, topic: str) -> None:
+    data = {
+        "type": "manual-pages",
+        "page": pages.first,
+        "page_end": pages.last,
+        "topic": topic,
+        "url": f"{PAGES_URL_PREFIX}{pages.path.name}",
+        "width": pages.width,
+        "height": pages.height,
+    }
+    await sender.push_frame(RTVIServerMessageFrame(data=data))
+    logger.info(f"SCREEN: manual {pages.label()} - {topic}")
+    _open_locally(pages.path)
+
+
+def _open_locally(path) -> None:
+    if not load_config().show_images_locally:
+        return
+    try:
+        if sys.platform == "win32":
+            os.startfile(path)  # opens in the default image viewer
+        else:
+            webbrowser.open(path.as_uri())
+    except OSError as e:
+        logger.warning(f"Couldn't open {path}: {e}")
