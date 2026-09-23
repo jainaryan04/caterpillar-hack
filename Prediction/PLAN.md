@@ -764,3 +764,90 @@ HTTP response, the Postgres rows and the CSV cannot disagree.
 - Oil & Gas roster change (add rigs) — measured payoff in §5b, not authorised.
 - Named alternatives (Fastest / Balanced / Low-fatigue) — parked.
 - Decision 3.2 (weather/shift circularity).
+
+---
+
+## 7. GPS position, routes and safety telemetry (DB layer, built)
+
+Two commits from the user, both DB-only per explicit instruction ("before
+touching the UI and code, first add machine position... everything related
+to the DB"):
+
+1. GPS location, machine-to-machine proximity, tilt/fall detection, routes.
+2. Geofencing: per-machine authorised zones (exit alert) + site-wide
+   restricted zones (entry alert), "add these data accordingly and check
+   properly".
+
+### 7.1 What exists now
+
+**Tables (10 new):** `sites`, `machine_type_specs`, `zones`,
+`machine_zone_assignments`, `machine_position_history`, `machine_routes`,
+`route_waypoints`, `machine_safety_events`, plus 10 new columns on
+`machines` (lat/lng/heading/pitch/roll/generated tilt/velocity/
+telemetry_status/site_id/position_updated_at).
+
+**Functions:** `point_in_polygon` (ray-casting), `haversine_m`
+(great-circle distance), `machine_in_geofence`, `check_zone_assignment_kind`
+(trigger — refuses assigning a machine to a `restricted` zone as its home).
+
+**Views:** `v_machine_positions`, `v_machine_geofence_status`,
+`v_open_safety_events`, `v_route_geometry`.
+
+**Alert taxonomy** in `machine_safety_events` (event_type):
+`PROXIMITY`, `TILT`, `ROLLOVER`, `FALL`, `GEOFENCE_EXIT`, `RESTRICTED_ZONE`
+— six distinct physical conditions, not lumped into one generic "alert" row,
+because their evaluation logic and required fields genuinely differ
+(other_machine_id vs zone_id vs neither). Partial unique indexes make a
+repeated detection tick extend one open row instead of spamming duplicates.
+
+### 7.2 Verified, not assumed ("check properly")
+
+- `point_in_polygon` and `haversine_m` tested against known geometry (unit
+  square, real zone centroids, 1-degree-latitude distance) before anything
+  was seeded on top of them.
+- The three anti-duplication constraints (open proximity pair, open
+  orientation per machine, open restricted-zone per machine+zone) tested
+  live inside a rolled-back transaction.
+- The zone-assignment-kind trigger tested live (assigning a machine to
+  `Z-BLAST` correctly rejected).
+- Full `schema.sql` re-applied three times in a row with zero errors
+  (caught and fixed a real pre-existing idempotency bug along the way: a
+  `CREATE OR REPLACE VIEW` on `r.*` cannot absorb a column an earlier
+  out-of-band `ALTER TABLE` inserted mid-list; fixed by switching
+  `v_run_overview`, `v_active_assignments`, `v_open_safety_events` to
+  drop+create).
+- 53/53 existing tests still pass — nothing in the scheduler or API touches
+  these new columns/tables.
+
+### 7.3 Design decisions worth knowing before integrating
+
+- **Geometry matches the frontend exactly.** `sites.SITE-01` bounds and all
+  9 real zone polygons are recomputed from `frontend/src/lib/mock/site.ts`'s
+  own `pt()` transform over `SITE_BOUNDS`/`SITE_PLAN` — pixel-for-pixel
+  identical, so wiring this into `map-view.tsx` later needs no coordinate
+  conversion. `Z-PERIMETER` (the whole site) is the one addition, used as
+  the fallback geofence for machine types with no mining-bench equivalent
+  (locomotives, marine vessels, oil & gas rigs, stationary generator skids).
+- **Geofence assignment is many-to-many, on purpose.** A haul truck
+  legitimately works across haul road + crusher pad + waste dump; assigning
+  it to only one would make normal operation look like a violation.
+- **Two status columns on `machines` remain distinct**: `status`
+  (scheduling reservation) vs `telemetry_status` (physical operating
+  state) — same reasoning as Phase 6's split, now doing double duty.
+- **Positioning is a script, not schema data.** `scripts/seed_gps_baseline.py`
+  places machines inside their assigned zones (jittered, verified inside,
+  reproducible via a fixed RNG seed) — kept out of `schema.sql` because
+  baking a one-time placement into the idempotent schema file would fight
+  every future re-run once real GPS data exists.
+- **Baseline is deliberately clean**: 0 machines outside their geofence, 0 in
+  a restricted zone, closest machine pair 54m (thresholds are 10-25m) — so
+  the first alert anyone sees comes from real simulated movement, not seed
+  noise.
+
+### 7.4 Still not built (next: "integrate")
+
+- The detector/simulator that actually moves machines and writes
+  `machine_safety_events` on a tick.
+- API routes for any of this (`/v1/machines/*`, `/v1/zones/*`, `/v1/alerts`).
+- Frontend wiring (`map-view.tsx`, `site-map.tsx` currently render mock data
+  only).
