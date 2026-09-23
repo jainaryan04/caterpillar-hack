@@ -3,99 +3,73 @@
 SCHEDULER
 ======================================================================
 110 tasks | 30 workers | 56 machines
-1270 candidates over 110 tasks (min 4, median 10, max 25 per task)
 time bucket: 1 min
 
 ======================================================================
 LOWER BOUND
 ======================================================================
 Per-industry chain bounds (stages are sequential, resources are finite):
-  Oil & Gas              2322 min
+  Oil & Gas              2322 min  <- critical
   Construction           1628 min
   Marine & Rail          1358 min
   Data Center Power       856 min
   Mining                  644 min
 
-No schedule can finish before 2322 min. Bottleneck: Oil & Gas.
+No schedule can finish before 2322 min.
 
 ======================================================================
-PASS 1 -- resources as they stand today
+RESULT
 ======================================================================
-
-Greedy baseline
-  makespan           2864 min (1.99 days)
-  total resource    19111 min
-  portions            110 over 110 tasks
-  status          GREEDY  (0.0s)
-  verifier        CLEAN
-
-CP-SAT
-  makespan           2777 min (1.93 days)
-  total resource    18777 min
-  portions            116 over 110 tasks
-  proven bound       2322 min -> within 19.6% of optimal
-  status          FEASIBLE/FEASIBLE  (45.3s)
-  verifier        CLEAN
-
-  CP-SAT vs greedy: +3.0% makespan, +1.7% resource time
+  greedy baseline      2864 min
+  CP-SAT               2847 min (1.98 days)  +0.6% vs greedy
+  proven bound         2322 min -> 22.6% above the floor
+  total resource      18986 min
+  portions              110 over 110 tasks (0 split)
+  status            FEASIBLE/FEASIBLE  (12.1s solve, 25.28s wall, 1 pass(es))
+  verifier          CLEAN
 
 ======================================================================
 RESOURCE STATE SIMULATION
 ======================================================================
-fatigue moved: mean 12.8 / max 66.9 points
-engine temp moved: mean 1.4 / max 14.4 C
-candidates that moved materially (>5 pts or >5 C): 805 of 1270
-
-======================================================================
-PASS 2 -- re-priced against projected state
-======================================================================
-duration change: mean +3.2 min, max +65.8 min
-
-CP-SAT (final)
-  makespan           2850 min (1.98 days)
-  total resource    19287 min
-  portions            112 over 110 tasks
-  proven bound       2408 min -> within 18.4% of optimal
-  status          FEASIBLE/FEASIBLE  (45.1s)
-  verifier        CLEAN
-
-======================================================================
-WHAT THE NAIVE GLOBAL STAGE BARRIER COSTS
-======================================================================
-  lower bound, global barrier : 3261 min
-  lower bound, per-industry   : 2322 min
-  the barrier raises the FLOOR by +40.4% before any solving happens
-  global barrier : 3985 min
-  per-industry   : 2777 min
-  measured cost of the barrier: +43.5%
+fatigue moved: mean 11.5 / max 69.4 points
+engine temp moved: mean 1.3 / max 15.0 C
+candidates that moved materially (>5 pts or >5 C): 751
+pass 1 makespan 2847 min -> pass 1 kept 2847 min
 
 ======================================================================
 FINAL SCHEDULE
 ======================================================================
-112 portions -> C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\Prediction\reports\schedule.csv
-tasks run in parallel: 2 of 110 (max 2 concurrent portions)
-workers used: 26 of 30 | machines used: 51 of 56
-end-of-schedule fatigue: mean 54.2, max 100.0
+110 portions -> C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\Prediction\reports\schedule.csv
+workers used: 26 of 30 | machines used: 50 of 56
+
+Busiest machines:
+  M006   Drilling Rig            39.5% over 3 tasks, engine 93 -> 108 C
+  M005   Drilling Rig            31.3% over 2 tasks, engine 99 -> 114 C
+  M036   Motor Grader            28.3% over 4 tasks, engine 93 -> 108 C
+  M013   Excavator               27.9% over 5 tasks, engine 97 -> 103 C
+  M012   Excavator               24.1% over 3 tasks, engine 104 -> 108 C
+  6 machines never used
+end-of-schedule fatigue: mean 55.1, max 99.9
 
 First 10 portions:
-task_id                 task_type          industry  stage execution_mode worker_id machine_id  start_min  end_min  busy_min  work_share_pct
-   T003 Cooling System Inspection Data Center Power      1         SINGLE      W019       M024          0       74        74           100.0
-   T004                Demolition      Construction      1       PARALLEL      W011       M012          0      251       251           100.1
-   T063        Surface Excavation            Mining      1       PARALLEL      W001       M009          0      151       151           100.1
-   T069 Cooling System Inspection Data Center Power      1         SINGLE      W023       M025          0       80        80           100.0
-   T082   Rail Network Inspection     Marine & Rail      1       PARALLEL      W025       M043          0      160       160           100.0
-   T104   Rail Network Inspection     Marine & Rail      1       PARALLEL      W029       M042          0      186       186           100.1
-   T107        Surface Excavation            Mining      1       PARALLEL      W005       M011          0      185       185           100.1
-   T060   Rail Network Inspection     Marine & Rail      1       PARALLEL      W026       M041         60      243       183           100.1
-   T091 Cooling System Inspection Data Center Power      1         SINGLE      W019       M024         74      141        67           100.0
-   T025 Cooling System Inspection Data Center Power      1         SINGLE      W023       M025         80      151        71           100.0
+ seq task_id                 task_type          industry  stage execution_mode worker_id machine_id            machine_type  start_min  end_min  busy_min start_at end_at  work_share_pct  predicted_duration_min  status
+   0    T003 Cooling System Inspection Data Center Power      1         SINGLE      W019       M024          Inspection Kit          0       72        72     None   None           100.0                      72 PLANNED
+   1    T004                Demolition      Construction      1       PARALLEL      W011       M012               Excavator          0      251       251     None   None           100.1                     251 PLANNED
+   2    T041        Surface Excavation            Mining      1       PARALLEL      W005       M013               Excavator          0      168       168     None   None           100.1                     168 PLANNED
+   3    T063        Surface Excavation            Mining      1       PARALLEL      W001       M011               Excavator          0      151       151     None   None           100.1                     151 PLANNED
+   4    T069 Cooling System Inspection Data Center Power      1         SINGLE      W023       M025          Inspection Kit          0       80        80     None   None           100.0                      80 PLANNED
+   5    T082   Rail Network Inspection     Marine & Rail      1       PARALLEL      W025       M043 Rail Inspection Vehicle          0      160       160     None   None           100.0                     160 PLANNED
+   6    T104   Rail Network Inspection     Marine & Rail      1       PARALLEL      W029       M041 Rail Inspection Vehicle          0      187       187     None   None           100.0                     187 PLANNED
+   7    T060   Rail Network Inspection     Marine & Rail      1       PARALLEL      W026       M042 Rail Inspection Vehicle         60      233       173     None   None           100.2                     173 PLANNED
+   8    T091 Cooling System Inspection Data Center Power      1         SINGLE      W019       M024          Inspection Kit         72      137        65     None   None           100.0                      65 PLANNED
+   9    T025 Cooling System Inspection Data Center Power      1         SINGLE      W023       M025          Inspection Kit         80      151        71     None   None           100.0                      71 PLANNED
 
 ======================================================================
 HONEST SUMMARY
 ======================================================================
-Makespan 2850 min against a proven lower bound of 2322 min.
-Optimality gap for the durations given: 18.4%.
-The durations themselves carry the model's ~11.5 min MAE, so this is
+Makespan 2847 min against a proven lower bound of 2322 min -- 82% of the schedule is forced by the roster, not chosen by the solver.
+Optimality gap for the durations given: 22.61%.
+The durations themselves carry the model's ~11.6 min MAE, so this is
 near-optimal FOR THE ESTIMATES, not a guaranteed real-world optimum.
 The two-pass fatigue loop is a heuristic; no fixed point is proven.
 Independent verification: PASS

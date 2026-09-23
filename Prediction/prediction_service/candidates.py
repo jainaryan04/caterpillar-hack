@@ -74,10 +74,3 @@ def generate_candidates(tasks: pd.DataFrame,
                 })
 
     return pd.DataFrame(rows)
-
-
-def candidate_summary(candidates: pd.DataFrame) -> str:
-    per_task = candidates.groupby("task_id").size()
-    return (f"{len(candidates)} candidates over {per_task.size} tasks "
-            f"(min {per_task.min()}, median {int(per_task.median())}, "
-            f"max {per_task.max()} per task)")

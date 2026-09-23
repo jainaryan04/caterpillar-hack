@@ -710,3 +710,57 @@ Confirmed by mutation testing that the suite has teeth:
 5. ~~Phase 4, Phase 5, Phase 6~~ — **DONE**. 4.8.6 items 1-4 went in with the first working solver, as intended. See section 5b for results.
 
 > Ordering note: the original plan put Phase 3 second, on the grounds that it works against the model that exists today. That was true but saved nothing — Phase 2 changed the feature schema (complexity semantics, `Temperature` -> `Machine Temperature (C)`), so any pipeline persisted before it would have been stale on arrival.
+
+---
+
+## 6. Serving layer (built)
+
+Full reference: **API.md**. Schema: **db/schema.sql** (applied to Supabase
+project `uecmsueagxwukkivcxiv`).
+
+### 6.1 Why the engine was extracted
+
+The two-pass loop used to live inside `run_scheduler.py`, interleaved with the
+report formatting. The API could not reuse it without importing a printer, and
+copying it would have been worse: the two would drift and the number on the
+dashboard would stop being the number in the report. `scheduling/engine.py`
+computes, `run_scheduler.py` formats, `api/service.py` serialises.
+`scheduling/summary.py` is the single definition of every derived figure, so the
+HTTP response, the Postgres rows and the CSV cannot disagree.
+
+### 6.2 Decisions taken while building it
+
+- **Direct SQL, not PostgREST.** A run is ~900 rows across seven tables that are
+  only meaningful together. One transaction writes all of it or none. A
+  half-written run renders as a dashboard of zeroes with nothing indicating a
+  problem.
+- **Persisting implies registering the roster.** `assignments` carries foreign
+  keys to `tasks`, `workers` and `machines`. A run built from an inline roster
+  must register that roster first or the write fails on a constraint the caller
+  never saw.
+- **At most one `PUBLISHED` run**, enforced by a partial unique index. Two live
+  plans would claim the same machines and double-count every utilisation figure.
+- **`publish` refuses an unverified run** (409). The verifier is the last line
+  between a mis-modelled constraint and a crew; "the API let me" is not a
+  defence.
+- **Utilisation is measured against the makespan**, not each resource's own
+  span. A machine that runs 60 minutes and then sits for 900 is 6% utilised.
+- **Idle machines stay in the response.** An unused asset is the most actionable
+  row on the page and must not be filtered away.
+
+### 6.3 Bugs this shook out
+
+- Unknown `(industry, task_type)` raised a bare `KeyError`, which the route
+  turned into a 404 naming nothing. `derive_complexity` now names the valid
+  options and the caller gets a 422.
+- `itertuples()` renames columns that are not valid identifiers, so
+  `_asdict()["Operator Skill"]` never existed. The predict endpoint reads
+  `to_dict("records")`.
+- `candidate_summary()` became dead on the refactor and was deleted; the count
+  it printed now travels on `PlanResult.n_candidates` and reaches the API.
+
+### 6.4 Still open
+
+- Oil & Gas roster change (add rigs) — measured payoff in §5b, not authorised.
+- Named alternatives (Fastest / Balanced / Low-fatigue) — parked.
+- Decision 3.2 (weather/shift circularity).

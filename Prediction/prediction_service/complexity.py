@@ -164,6 +164,14 @@ def derive_complexity(industry, task_type, quantity, rng=None, jitter=True) -> i
     if jitter and rng is None:
         raise ValueError("jitter=True requires an rng")
 
+    if industry not in TASK_DIFFICULTY:
+        raise ValueError(
+            f"unknown industry {industry!r}; known: {sorted(TASK_DIFFICULTY)}")
+    if task_type not in TASK_DIFFICULTY[industry]:
+        raise ValueError(
+            f"unknown task type {task_type!r} for industry {industry!r}; "
+            f"known: {sorted(TASK_DIFFICULTY[industry])}")
+
     raw = (
         W_SIZE * size_score(industry, task_type, quantity)
         + W_TASK * TASK_DIFFICULTY[industry][task_type]

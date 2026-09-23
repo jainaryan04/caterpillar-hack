@@ -1,19 +1,18 @@
-"""End-to-end scheduler: predict -> solve -> simulate -> re-predict -> solve.
+"""Command-line scheduler: predict -> solve -> simulate -> re-predict -> solve.
 
     python -m scheduling.run_scheduler [--seconds 60] [--bucket 1] [--compare-barrier]
 
 Output: reports/schedule_report.txt and reports/schedule.csv
 
-The two-pass structure exists because fatigue and engine temperature are model
-INPUTS whose values depend on the schedule, which is a solver OUTPUT. Pass 1
-uses each resource's state as it stands today; the tentative schedule is then
-simulated forward, and pass 2 re-prices every candidate against the state its
-resources will actually be in.
+The planning itself lives in scheduling/engine.py, which the HTTP API calls
+too. This file only formats -- so the number printed here and the number on the
+dashboard are the same number, not two implementations that agree today.
 
-> This is a HEURISTIC, not a proven optimum. Each pass is solved to (a measured
-> distance from) optimality for the durations it was given, but the durations
-> themselves depend on the schedule, so the fixed point is not guaranteed. The
-> output is not "the optimal schedule" and must not be described as one.
+> The two-pass loop is a HEURISTIC, not a proven optimum. Each pass is solved to
+> a measured distance from optimality for the durations it was given, but the
+> durations themselves depend on the schedule, so the fixed point is not
+> guaranteed. The output is not "the optimal schedule" and must not be
+> described as one.
 """
 
 from __future__ import annotations
@@ -23,16 +22,16 @@ from pathlib import Path
 
 import pandas as pd
 
-from prediction_service.candidates import candidate_summary, generate_candidates
+from prediction_service.candidates import generate_candidates
 from prediction_service.loaders import load_all
 from prediction_service.predict import predict_durations
 
+from . import summary as S
 from .bounds import barrier_lower_bound, chain_lower_bound
 from .cp_sat_model import solve
+from .engine import PlanOptions, plan
 from .greedy import greedy_schedule
 from .problem import build_problem
-from .resource_state import project_candidate_state, simulate, state_drift
-from .verify import verify
 
 REPORT_DIR = Path(__file__).resolve().parent.parent / "reports"
 
@@ -57,37 +56,12 @@ def section(r, title):
     r.add("=" * 70)
 
 
-def describe(r, p, label, sched, lb):
-    v = verify(p, sched)
-    r.add(f"\n{label}")
-    r.add(f"  makespan        {p.to_minutes(sched.makespan):>7} min "
-          f"({p.to_minutes(sched.makespan) / 1440:.2f} days)")
-    r.add(f"  total resource  {p.to_minutes(sched.total_busy()):>7} min")
-    r.add(f"  portions        {len(sched.portions):>7} over {len(sched.by_task())} tasks")
-    if sched.objective_bound:
-        r.add(f"  proven bound    {p.to_minutes(sched.objective_bound):>7} min "
-              f"-> within {sched.gap_pct():.1f}% of optimal")
-    r.add(f"  status          {sched.status}  ({sched.solve_seconds:.1f}s)")
-    r.add(f"  verifier        {'CLEAN' if not v else f'{len(v)} VIOLATIONS'}")
-    for x in v[:5]:
-        r.add(f"      ! {x}")
-    return v
-
-
-def write_schedule_csv(p, sched, path):
-    rows = []
-    for x in sorted(sched.portions, key=lambda z: (z.start, z.task_id)):
-        t = p.task_row[x.task_id]
-        rows.append({
-            "task_id": x.task_id, "task_type": t.task_type, "industry": t.industry,
-            "stage": t.task_priority, "execution_mode": t.execution_mode,
-            "worker_id": x.worker_id, "machine_id": x.machine_id,
-            "start_min": p.to_minutes(x.start), "end_min": p.to_minutes(x.end),
-            "busy_min": p.to_minutes(x.busy),
-            "work_share_pct": round(
-                100 * p.rate[(x.task_id, x.worker_id, x.machine_id)] * x.busy / 100_000, 1),
-        })
-    df = pd.DataFrame(rows)
+def write_schedule_csv(res, path) -> pd.DataFrame:
+    df = pd.DataFrame(S.assignments(res))
+    # No calendar anchor on the CLI, so the resolved timestamps are all null.
+    # A column of Nones in a CSV is noise a reader has to rule out.
+    df = df.drop(columns=["start_at", "end_at"])
+    path.parent.mkdir(parents=True, exist_ok=True)
     df.to_csv(path, index=False)
     return df
 
@@ -96,6 +70,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--seconds", type=float, default=60.0)
     ap.add_argument("--bucket", type=int, default=1)
+    ap.add_argument("--single-pass", action="store_true",
+                    help="skip the fatigue/temperature re-pricing pass")
     ap.add_argument("--compare-barrier", action="store_true",
                     help="also solve with the naive global stage barrier, to "
                          "measure what that reading costs")
@@ -106,94 +82,104 @@ def main():
 
     tasks, workers, machines = load_all()
     r.add(f"{len(tasks)} tasks | {len(workers)} workers | {len(machines)} machines")
-
-    cand1 = predict_durations(generate_candidates(tasks, workers, machines))
-    r.add(candidate_summary(cand1))
-    p1 = build_problem(tasks, workers, machines, cand1, bucket=args.bucket)
     r.add(f"time bucket: {args.bucket} min")
 
-    lb, chains = chain_lower_bound(p1, detail=True)
+    opts = PlanOptions(seconds=args.seconds, bucket=args.bucket,
+                       two_pass=not args.single_pass)
+    res = plan(tasks, workers, machines, opts)
+    p = res.problem
+
     section(r, "LOWER BOUND")
     r.add("Per-industry chain bounds (stages are sequential, resources are finite):")
-    for ind, val in sorted(chains.items(), key=lambda kv: -kv[1]):
-        r.add(f"  {ind:20} {p1.to_minutes(val):>6} min")
-    r.add(f"\nNo schedule can finish before {p1.to_minutes(lb)} min. "
-          f"Bottleneck: {max(chains, key=chains.get)}.")
+    for row in S.bottlenecks(res):
+        mark = "  <- critical" if row["is_critical"] else ""
+        r.add(f"  {row['industry']:20} {row['chain_bound_min']:>6} min{mark}")
+    r.add(f"\nNo schedule can finish before {p.to_minutes(res.lower_bound)} min.")
 
-    section(r, "PASS 1 -- resources as they stand today")
-    g = greedy_schedule(p1)
-    describe(r, p1, "Greedy baseline", g, lb)
-    s1 = solve(p1, horizon=g.makespan, hint=g, max_seconds=args.seconds)
-    describe(r, p1, "CP-SAT", s1, lb)
-    if not s1.portions:
+    if not res.schedule.portions:
         r.add("\nno feasible schedule found; stopping")
         r.save(REPORT_DIR / "schedule_report.txt")
         return
-    r.add(f"\n  CP-SAT vs greedy: {100 * (g.makespan - s1.makespan) / g.makespan:+.1f}% makespan, "
-          f"{100 * (g.total_busy() - s1.total_busy()) / g.total_busy():+.1f}% resource time")
 
-    section(r, "RESOURCE STATE SIMULATION")
-    cand2 = project_candidate_state(p1, s1, cand1)
-    drift = state_drift(cand1, cand2)
-    r.add(f"fatigue moved: mean {drift['fatigue_mean']:.1f} / max {drift['fatigue_max']:.1f} points")
-    r.add(f"engine temp moved: mean {drift['temp_mean']:.1f} / max {drift['temp_max']:.1f} C")
-    r.add(f"candidates that moved materially (>5 pts or >5 C): {drift['material']} "
-          f"of {len(cand2)}")
+    s = S.run_summary(res, opts)
+    section(r, "RESULT")
+    r.add(f"  greedy baseline   {s['greedy_makespan_min']:>7} min")
+    r.add(f"  CP-SAT            {s['makespan_min']:>7} min "
+          f"({s['makespan_days']} days)  {s['improvement_vs_greedy_pct']:+.1f}% vs greedy")
+    r.add(f"  proven bound      {s['lower_bound_min']:>7} min "
+          f"-> {s['gap_vs_analytical_bound_pct']:.1f}% above the floor")
+    r.add(f"  total resource    {s['total_busy_min']:>7} min")
+    r.add(f"  portions          {s['n_portions']:>7} over {s['n_tasks']} tasks "
+          f"({s['n_split_tasks']} split)")
+    r.add(f"  pairings priced   {s['n_candidates']:>7}")
+    r.add(f"  status            {s['solver_status']}  "
+          f"({s['solve_seconds']}s solve, {s['wall_seconds']}s wall, "
+          f"{s['passes']} pass(es))")
+    r.add(f"  verifier          {'CLEAN' if s['verified'] else 'VIOLATIONS'}")
+    for v in s["violations"][:5]:
+        r.add(f"      ! {v}")
 
-    section(r, "PASS 2 -- re-priced against projected state")
-    cand2 = predict_durations(cand2)
-    shift = (cand2["predicted_duration"] - cand1["predicted_duration"])
-    r.add(f"duration change: mean {shift.mean():+.1f} min, max {shift.max():+.1f} min")
-    p2 = build_problem(tasks, workers, machines, cand2, bucket=args.bucket)
-    g2 = greedy_schedule(p2)
-    s2 = solve(p2, horizon=max(g2.makespan, s1.makespan), hint=g2, max_seconds=args.seconds)
-    v2 = describe(r, p2, "CP-SAT (final)", s2, lb)
-
-    final, pf = (s2, p2) if s2.portions else (s1, p1)
+    if res.drift:
+        section(r, "RESOURCE STATE SIMULATION")
+        d = res.drift
+        r.add(f"fatigue moved: mean {d['fatigue_mean']:.1f} / max {d['fatigue_max']:.1f} points")
+        r.add(f"engine temp moved: mean {d['temp_mean']:.1f} / max {d['temp_max']:.1f} C")
+        r.add(f"candidates that moved materially (>5 pts or >5 C): {d['material']}")
+        r.add(f"pass 1 makespan {res.pass1_makespan} min -> "
+              f"pass {res.passes} kept {s['makespan_min']} min")
 
     if args.compare_barrier:
         section(r, "WHAT THE NAIVE GLOBAL STAGE BARRIER COSTS")
+        cand = predict_durations(generate_candidates(tasks, workers, machines),
+                                 verbose=False)
+        p1 = build_problem(tasks, workers, machines, cand, bucket=args.bucket)
+        lb = chain_lower_bound(p1)
         blb = barrier_lower_bound(p1)
         r.add(f"  lower bound, global barrier : {p1.to_minutes(blb)} min")
         r.add(f"  lower bound, per-industry   : {p1.to_minutes(lb)} min")
-        r.add(f"  the barrier raises the FLOOR by "
-              f"{100 * (blb - lb) / lb:+.1f}% before any solving happens")
+        r.add(f"  the barrier raises the FLOOR by {100 * (blb - lb) / lb:+.1f}% "
+              f"before any solving happens")
         gb = greedy_schedule(p1, precedence_mode="global")
-        sb = solve(p1, horizon=gb.makespan, hint=gb,
-                   precedence_mode="global", max_seconds=args.seconds)
+        sb = solve(p1, horizon=gb.makespan, hint=gb, precedence_mode="global",
+                   max_seconds=args.seconds)
         if sb.portions:
             r.add(f"  global barrier : {p1.to_minutes(sb.makespan)} min")
-            r.add(f"  per-industry   : {p1.to_minutes(s1.makespan)} min")
+            r.add(f"  per-industry   : {s['makespan_min']} min")
             r.add(f"  measured cost of the barrier: "
-                  f"{100 * (sb.makespan - s1.makespan) / s1.makespan:+.1f}%")
+                  f"{100 * (p1.to_minutes(sb.makespan) - s['makespan_min']) / s['makespan_min']:+.1f}%")
         else:
             r.add(f"  global barrier: no solution within the time limit ({sb.status})")
 
     section(r, "FINAL SCHEDULE")
-    df = write_schedule_csv(pf, final, REPORT_DIR / "schedule.csv")
+    df = write_schedule_csv(res, REPORT_DIR / "schedule.csv")
     r.add(f"{len(df)} portions -> {REPORT_DIR / 'schedule.csv'}")
+    r.add(f"workers used: {s['workers_used']} of {s['workers_total']} | "
+          f"machines used: {s['machines_used']} of {s['machines_total']}")
 
-    split = df.groupby("task_id").size()
-    r.add(f"tasks run in parallel: {int((split > 1).sum())} of {split.size} "
-          f"(max {int(split.max())} concurrent portions)")
-    r.add(f"workers used: {df.worker_id.nunique()} of {len(workers)} | "
-          f"machines used: {df.machine_id.nunique()} of {len(machines)}")
+    mu = S.machine_usage(res)
+    r.add(f"\nBusiest machines:")
+    for m in mu[:5]:
+        r.add(f"  {m['machine_id']:6} {m['machine_type']:22} "
+              f"{m['utilization_pct']:>5.1f}% over {m['n_tasks']} tasks, "
+              f"engine {m['start_temp_c']:.0f} -> {m['end_temp_c']:.0f} C")
+    r.add(f"  {sum(1 for m in mu if m['n_tasks'] == 0)} machines never used")
 
-    fat, tmp = simulate(pf, final)
-    end_f = [t.final() for t in fat.values()]
+    wu = S.worker_usage(res)
+    end_f = [w["end_fatigue"] for w in wu]
     r.add(f"end-of-schedule fatigue: mean {sum(end_f) / len(end_f):.1f}, max {max(end_f):.1f}")
 
     r.add("\nFirst 10 portions:")
     r.add(df.head(10).to_string(index=False))
 
     section(r, "HONEST SUMMARY")
-    r.add(f"Makespan {pf.to_minutes(final.makespan)} min against a proven lower bound of "
-          f"{pf.to_minutes(lb)} min.")
-    r.add(f"Optimality gap for the durations given: {final.gap_pct():.1f}%.")
-    r.add("The durations themselves carry the model's ~11.5 min MAE, so this is")
+    r.add(f"Makespan {s['makespan_min']} min against a proven lower bound of "
+          f"{s['lower_bound_min']} min -- {100 * s['lower_bound_min'] / s['makespan_min']:.0f}% "
+          f"of the schedule is forced by the roster, not chosen by the solver.")
+    r.add(f"Optimality gap for the durations given: {s['optimality_gap_pct']}%.")
+    r.add("The durations themselves carry the model's ~11.6 min MAE, so this is")
     r.add("near-optimal FOR THE ESTIMATES, not a guaranteed real-world optimum.")
     r.add("The two-pass fatigue loop is a heuristic; no fixed point is proven.")
-    r.add(f"Independent verification: {'PASS' if not v2 else 'FAIL'}")
+    r.add(f"Independent verification: {'PASS' if s['verified'] else 'FAIL'}")
 
     r.save(REPORT_DIR / "schedule_report.txt")
     print(f"\nReport -> {REPORT_DIR / 'schedule_report.txt'}")
