@@ -12,6 +12,7 @@ from pipecat.workers.runner import WorkerRunner
 
 from cat.config import load_config
 from cat.pipeline import build_worker
+from cat.server import make_server
 
 
 async def main():
@@ -28,11 +29,21 @@ async def main():
     runner = WorkerRunner(handle_sigint=True)
     await runner.add_workers(worker)
 
+    # The phone app's API (videos, paused frames, photos) runs in the same process,
+    # so a voice question can use what the app just reported.
+    server = make_server(cfg.http_host, cfg.http_port)
+    server_task = asyncio.create_task(server.serve())
+    logger.info(f"Operator API on http://localhost:{cfg.http_port} (try /ref)")
+
     logger.info(
         f"Cat is listening (STT=deepgram/{cfg.stt_model}, LLM={cfg.llm_provider}/{cfg.llm_model}, "
         f"TTS={cfg.tts_provider}/{cfg.tts_voice}). Press Ctrl+C to stop."
     )
-    await runner.run()
+    try:
+        await runner.run()
+    finally:
+        server.should_exit = True
+        await server_task
 
 
 if __name__ == "__main__":

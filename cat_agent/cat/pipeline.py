@@ -14,6 +14,8 @@ user aggregator turns that into an interruption, which makes the LLM, TTS and
 speaker drop whatever they were doing, and Cat goes quiet to listen.
 """
 
+import asyncio
+
 from loguru import logger
 from pipecat.audio.vad.silero import SileroVADAnalyzer
 from pipecat.audio.vad.vad_analyzer import VADParams
@@ -37,8 +39,12 @@ from pipecat.turns.user_mute import (
 
 from cat.config import Config
 from cat.echo_guard import BotSpeechRecorder, EchoFilter, EchoGuard
+from cat import part_recognition, photo_match
 from cat.prompts import GREETING_INSTRUCTION
+from cat.rag import sections
 from cat.rag.store import get_store
+from cat.screen import LOCAL_SESSION
+from cat.server import report_playing, report_video_pause
 from cat.services import make_llm, make_stt, make_tts
 from cat.tools import TOOLS
 from cat.wake_word import WAKE_WORDS, CatWakeStrategy, strip_wake_phrase
@@ -146,8 +152,11 @@ def build_worker(transport: BaseTransport, cfg: Config) -> PipelineWorker:
         # Fill the ~1-2s manual lookup with speech instead of silence.
         if wake:
             wake.reply_started()  # back to sleep while Cat works on the request
-        if any(fc.function_name == "ask_machine_expert" for fc in function_calls):
+        names = {fc.function_name for fc in function_calls}
+        if "ask_machine_expert" in names:
             await llm.push_frame(TTSSpeakFrame("Let me check the manual.", append_to_context=False))
+        elif "ask_about_screen" in names:
+            await llm.push_frame(TTSSpeakFrame("Let me look.", append_to_context=False))
 
     @assistant_aggregator.event_handler("on_assistant_turn_started")
     async def on_assistant_turn_started(aggregator):
@@ -171,10 +180,30 @@ def build_worker(transport: BaseTransport, cfg: Config) -> PipelineWorker:
         async def on_wake_phrase_timeout(strategy):
             logger.info('(asleep: say "Hey Cat" to talk)')
 
+    # The app can also report the screen over the RTVI connection (Pipecat
+    # client SDKs: sendClientMessage("video-paused", {video_id, t, tap?})).
+    # Photos go over HTTP (POST /api/screen/photo): they're too big for messages.
+    @worker.rtvi.event_handler("on_client_message")
+    async def on_client_message(rtvi, message):
+        data = message.data or {}
+        try:
+            if message.type == "video-paused":
+                await report_video_pause(
+                    data["video_id"], float(data["t"]), data.get("tap"), LOCAL_SESSION, data.get("circle")
+                )
+            elif message.type == "video-playing":
+                report_playing(LOCAL_SESSION)
+        except (KeyError, ValueError, TypeError) as e:
+            logger.warning(f"Bad {message.type} message {data}: {e}")
+
     @worker.event_handler("on_pipeline_started")
     async def on_pipeline_started(worker, frame):
         # Open the OpenAI/Pinecone connections while Cat says hello.
         worker.create_task(manual.warm_up())
+        # Load the manual sections and photo references now, not on the first question.
+        worker.create_task(asyncio.to_thread(sections.warm))
+        worker.create_task(asyncio.to_thread(photo_match.warm))
+        worker.create_task(asyncio.to_thread(part_recognition.warm))
         # Cat speaks first.
         greeting = GREETING_INSTRUCTION
         if cfg.wake_word:

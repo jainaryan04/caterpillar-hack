@@ -39,7 +39,7 @@ from cat.display import show_manual_image
 from cat.memory import ManualLookup, get_manual_memory
 from cat.rag.images import ManualImage, get_image
 from cat.rag.pages import MAX_PAGES
-from cat.rag.store import MANUAL, Passage, format_passages, get_store
+from cat.rag.store import MANUAL, Passage, format_passages, get_store, hedged
 from cat.reply import reply_directly
 
 # Tracing uploads every agent run to OpenAI's dashboard; keep it off.
@@ -59,6 +59,9 @@ Accuracy rules - an operator will act on what you say:
 controls often share an excerpt; don't mix their details in.
 - Keep conditions that change the answer (e.g. "only with Cat HYDO Advanced oil, otherwise 2000 hours").
 - Mention a safety warning only if the excerpt gives one for this control or task.
+- Positions and conditions must match the excerpt word for word: LOCKED/UNLOCKED, ON/OFF, \
+forward/backward, "before"/"after", "only when", "will not". Say which position allows what \
+exactly as written (e.g. "the engine starts only with the lever in LOCKED"), never inverted.
 
 Your answer is read aloud to an operator who is working the machine:
 - One or two short sentences, under 45 words, in plain speech. No lists, markdown or symbols.
@@ -76,7 +79,35 @@ image: g00867598     <- the picture you picked, or
 image: none
 """
 
+EXPERT_HEDGE_SECS = 2.5
+
 SHOWN_ON_SCREEN = " I've put the picture from the manual on your screen."
+
+# Added to the prompt when the question is about what's on the operator's screen.
+SCREEN_RULES = """\
+The operator is asking about what is on their screen right now (described \
+below). "This", "that", "it" or "the one" means what is marked as pointed \
+at (a control, or the part an on-screen label names), unless their words (a \
+colour, icon, position or number) clearly pick another listed one. A colour \
+the operator mentions may not appear in the manual; don't repeat it as a fact. \
+Numbers drawn on a step picture refer to that picture's own labels. Identify \
+the control only from that description and explain it only from the manual \
+excerpts, answering what they actually asked (what it does, where it is, or \
+how to use it). If the footage shows a newer machine version, say the 320D \
+manual describes it this way. If \
+several listed controls fit equally and nothing narrows it down, ask which \
+one in one short question, naming them. If the operator circled two or three \
+controls, name each and say in a few words what it does. If nothing listed fits, say you can't \
+tell from the screen and ask them to name it or tap it. If nothing is marked \
+as pointed at and the screen shows a procedure step, "this" means that step: \
+explain the step from its own manual section, not a control it uses. If the \
+part was recognised by its shape only (the picture didn't match a known 320D \
+layout), say what it looks like ("That looks like a joystick.") rather than \
+stating it as fact, then what the 320D manual says about that control; if two \
+guesses are close, mention both briefly. Start by \
+naming the step or the \
+control, e.g. "That's the travel alarm cancel switch."
+"""
 
 
 # The agent's last line names its picture. (A structured output type would be
@@ -87,6 +118,7 @@ _IMAGE_LINE = re.compile(r"\s*image:\s*(g\d{8}|none)\W*$", re.IGNORECASE)
 def _split_answer(output: str) -> tuple[str, str | None]:
     # gpt-oss likes typographic spaces/hyphens ("page 94", "right‑side").
     output = output.replace(" ", " ").replace(" ", " ").replace("‑", "-")
+    output = output.replace("’", "'").replace("“", '"').replace("”", '"')
     match = _IMAGE_LINE.search(output)
     if not match:
         return output.strip(), None
@@ -155,16 +187,27 @@ def _machine_expert() -> Agent:
     )
 
 
-async def answer_from_manual(question: str) -> ExpertAnswer:
+async def answer_from_manual(
+    question: str, screen: str | None = None, passages: list[Passage] | None = None
+) -> ExpertAnswer:
+    """Answer from the manual. `screen` describes what the operator is looking at
+    (cat/screen.py) and `passages` are the manual sections already known to be
+    behind it; without them the manual is searched with the question."""
     t0 = time.perf_counter()
-    try:
-        passages = await get_store().search_for_question(question)
-    except Exception as e:
-        logger.error(f"Manual search failed: {e}")
-        return ExpertAnswer("I couldn't reach the manual just now. Please try again in a moment.")
+    if not passages:
+        try:
+            passages = await get_store().search_for_question(question)
+        except Exception as e:
+            logger.error(f"Manual search failed: {e}")
+            return ExpertAnswer("I couldn't reach the manual just now. Please try again in a moment.")
     t_search = time.perf_counter()
-    prompt = f"Operator's question: {question}\n\nManual excerpts:\n\n{format_passages(passages)}"
-    result = await Runner.run(_machine_expert(), prompt)
+    prompt = f"Operator's question: {question}\n\n"
+    if screen:
+        prompt += f"{SCREEN_RULES}\nOn the operator's screen right now:\n{screen}\n\n"
+    prompt += f"Manual excerpts:\n\n{format_passages(passages)}"
+    # Usually ~0.8s; now and then a request stalls for several seconds, so race
+    # a backup copy after EXPERT_HEDGE_SECS (costs an extra call only then).
+    result = await hedged(lambda: Runner.run(_machine_expert(), prompt), "machine expert", after=EXPERT_HEDGE_SECS)
     text, image_id = _split_answer(result.final_output)
     # Only show a picture that really exists (the model could invent an id).
     image = get_image(image_id)
@@ -189,11 +232,16 @@ control, button, switch, lever, warning, safety procedure, or maintenance task.
             (e.g. "What does the AEC switch do?").
     """
     answer = await answer_from_manual(question)
+    await say_answer(params, question, answer)
+
+
+async def say_answer(params: FunctionCallParams, question: str, answer: ExpertAnswer, show_picture: bool = True):
+    """Show the manual's picture, remember the pages for "open it", and speak the answer."""
     spoken = answer.text
-    if answer.image:
+    if answer.image and show_picture:
         await show_manual_image(params.llm, answer.image, caption=question)
         spoken += SHOWN_ON_SCREEN
-    result = {"answer": spoken, "picture_shown": answer.image.id if answer.image else None}
+    result = {"answer": spoken, "picture_shown": answer.image.id if answer.image and show_picture else None}
     if answer.page:
         get_manual_memory().remember(
             ManualLookup(

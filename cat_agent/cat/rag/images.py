@@ -84,6 +84,17 @@ def extract_illustrations(pdf_path: Path, out_dir: Path) -> dict[str, dict]:
     return index
 
 
+def render_illustration(pdf_path: Path, image_id: str, page: int, dpi: int) -> pymupdf.Pixmap | None:
+    """One illustration again at another resolution (same crop, so positions in it still match)."""
+    doc = pymupdf.open(pdf_path)
+    pdf_page = doc[page - 1]
+    for found, caption in _captions(pdf_page):
+        if found == image_id:
+            rect = _picture_rect(pdf_page, caption)
+            return pdf_page.get_pixmap(clip=rect + (-2, -2, 2, 2), dpi=dpi) if rect else None
+    return None
+
+
 def load_index(out_dir: Path) -> dict[str, dict]:
     path = out_dir / "index.json"
     return json.loads(path.read_text(encoding="utf-8")) if path.exists() else {}

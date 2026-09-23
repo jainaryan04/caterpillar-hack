@@ -1,0 +1,554 @@
+{
+ "video_id": "controls-tour",
+ "title": "Cat 320D Operator Controls Tour",
+ "scenes": [
+  {
+   "kind": "title",
+   "title": "Cat 320D Operator Controls",
+   "subtitle": "From the Operation and Maintenance Manual SEBU8053-20",
+   "narration": "This is a tour of the operator controls of the Cat 320D excavator, taken from its Operation and Maintenance Manual."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "caption": "The cab · manual page 95",
+   "narration": "Here is the cab from above. Each control has a number in the manual. Pause at any time and ask Cat about what you see.",
+   "controls": [],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls",
+     "page": 95
+    }
+   ]
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "1a",
+   "caption": "(1a) Air Conditioning and Heater Control · manual page 96",
+   "controls": [
+    "1a"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Air Conditioning and Heating Control (1a - 1b)",
+     "page": 96
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Air Conditioning and Heating Control (1a - 1b)",
+   "narration": "The heater and air-conditioner keep the operator comfortable in both hot and cold conditions."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "1b",
+   "caption": "(1b) Air Conditioning and Heater Control · manual page 96",
+   "controls": [
+    "1b"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Air Conditioning and Heating Control (1a - 1b)",
+     "page": 96
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Air Conditioning and Heating Control (1a - 1b)",
+   "narration": "The heater and air-conditioner keep the operator comfortable while working in a range of temperature conditions."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "2",
+   "caption": "(2) Hydraulic Lockout Control · manual page 96",
+   "controls": [
+    "2"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Hydraulic Lockout Control (2)",
+     "page": 96
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Hydraulic Lockout Control (2)",
+   "narration": "The hydraulic lockout lever sits on the left side of the left console; pulling it back locks all factory-installed hydraulic controls, while pushing it forward unlocks them for operation."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "3",
+   "caption": "(3) Travel Controls · manual page 96",
+   "controls": [
+    "3"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Travel Controls (3)",
+     "page": 96
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Travel Controls (3)",
+   "narration": "When traveling, keep the final drive sprockets beneath the rear of the machine; releasing the travel levers or pedals returns them to center and applies the travel brakes."
+  },
+  {
+   "kind": "picture",
+   "image": "g00731542",
+   "caption": "(3) Travel Controls · manual page 96",
+   "controls": [
+    "3"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Travel Controls (3)",
+     "page": 96
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Travel Controls (3)",
+   "narration": "Move both travel levers or pedals equally in the same direction to travel straight.",
+   "follow_on": true
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "4",
+   "caption": "(4) Service Hour Meter · manual page 98",
+   "controls": [
+    "4"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Service Hour Meter (4)",
+     "page": 98
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Service Hour Meter (4)",
+   "narration": "This display shows the total operating hours of the engine. Use it to work out the service hour maintenance intervals."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "5",
+   "caption": "(5) Monitor · manual page 98",
+   "controls": [
+    "5"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Monitor (5)",
+     "page": 98
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Monitor (5)",
+   "narration": "The monitor displays various operating information about the machine. The Monitoring System section of the manual explains how to use it."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "6",
+   "caption": "(6) Joystick Controls · manual page 98",
+   "controls": [
+    "6"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Joystick Controls (6)",
+     "page": 98
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Joystick Controls (6)",
+   "narration": "The joystick control operates the work-tool functions, with detailed individual joystick functions described elsewhere in the manual."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "7",
+   "caption": "(7) Engine Speed Control · manual page 98",
+   "controls": [
+    "7"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Engine Speed Control (7)",
+     "page": 98
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Engine Speed Control (7)",
+   "narration": "Turn the engine speed dial clockwise to increase rpm or counter-clockwise to decrease it, with the selected position shown on the electronic monitor panel."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "8",
+   "caption": "(8) Engine Start Switch · manual page 99",
+   "controls": [
+    "8"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Engine Start Switch (8)",
+     "page": 99
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Engine Start Switch (8)",
+   "narration": "Turn the key clockwise to ON to activate all cab circuits, and on to START to crank the engine. Release the key after the engine starts. Turn it to OFF to stop the engine."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "10",
+   "caption": "(10) Operator's Seat · manual page 99",
+   "controls": [
+    "10"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Operator's Seat (10)",
+     "page": 99
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Operator's Seat (10)",
+   "narration": "The operator's seat and console provide multiple adjustments to suit a wide range of operators."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "11",
+   "caption": "(11) Radio · manual page 99",
+   "controls": [
+    "11"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Radio (11)",
+     "page": 99
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Radio (11)",
+   "narration": "The 320D can be equipped with a radio; details are covered in the manual’s Radio section."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03654245",
+   "focus": "12",
+   "caption": "(12) Backup Controls (If Equipped) · manual page 99",
+   "controls": [
+    "12"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Backup Controls (12) (If Equipped)",
+     "page": 99
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Backup Controls (12) (If Equipped)",
+   "narration": "The backup switches are under the right armrest. With switch 12A in MANUAL, the electronic controller is disconnected and the monitor shows LIMITED MOBILITY MODE."
+  },
+  {
+   "kind": "picture",
+   "image": "g03661499",
+   "caption": "(12) Backup Controls (If Equipped) · manual page 99",
+   "controls": [
+    "12"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Backup Controls (12) (If Equipped)",
+     "page": 99
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Backup Controls (12) (If Equipped)",
+   "narration": "When backup switch 12A stays in the AUTOMATIC position, the electronic controller governs engine speed and the backup switches are inactive.",
+   "follow_on": true
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "caption": "(9) Right side control panel · manual page 96",
+   "narration": "Now the right side control panel, with switches 13 to 26.",
+   "controls": [],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls",
+     "page": 96
+    }
+   ]
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "13",
+   "caption": "(13) Travel Speed Control · manual page 100",
+   "controls": [
+    "13"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Travel Speed Control (13)",
+     "page": 100
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Travel Speed Control (13)",
+   "narration": "Press it to choose LOW SPEED for rough or soft ground or loading onto a trailer, or AUTOMATIC for fast travel on hard, level ground. Don't change it while you travel."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "14",
+   "caption": "(14) Automatic Engine Speed Control (AEC) · manual page 100",
+   "controls": [
+    "14"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Automatic Engine Speed Control (14)",
+     "page": 100
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Automatic Engine Speed Control (14)",
+   "narration": "The Automatic Engine Speed Control reduces engine speed when the machine is idle, helping lower fuel use, noise, and wear, and returns to the dial setting whenever a hydraulic function is activated."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "15",
+   "caption": "(15) Travel Alarm Cancel Switch · manual page 101",
+   "controls": [
+    "15"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Travel Alarm Cancel Switch (15)",
+     "page": 101
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Travel Alarm Cancel Switch (15)",
+   "narration": "Press the Travel Alarm Cancel Switch to stop the alarm, and the indicator lamp will illuminate."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "16",
+   "caption": "(16) Work Tool Control · manual page 101",
+   "controls": [
+    "16"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Work Tool Control (16)",
+     "page": 101
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Work Tool Control (16)",
+   "narration": "Press the Work Tool Control switch to show the selected tool on the monitor, and press it repeatedly to cycle through the available tools."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "17",
+   "caption": "(17) Heavy Lift Control · manual page 101",
+   "controls": [
+    "17"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Heavy Lift Control (17)",
+     "page": 101
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Heavy Lift Control (17)",
+   "narration": "Press the button to activate heavy lift mode, which raises hydraulic relief pressure for greater lifting force and slows cylinder speed; press again to deactivate the mode."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "18",
+   "caption": "(18) Upper Window Washer · manual page 101",
+   "controls": [
+    "18"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Upper Window Wiper and Window Washer (18-19)",
+     "page": 101
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Upper Window Wiper and Window Washer (18-19)",
+   "narration": "Push the window washer switch; the indicator lights, washer fluid sprays from the nozzle, and the wiper runs while held, stopping about three seconds after release."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "19",
+   "caption": "(19) Upper Window Wiper · manual page 101",
+   "controls": [
+    "19"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Upper Window Wiper and Window Washer (18-19)",
+     "page": 101
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Upper Window Wiper and Window Washer (18-19)",
+   "narration": "Press the window wiper switch once for a six-second intermittent wipe, twice for three-second intervals, three times for continuous wipe, and four times to turn it off."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "20",
+   "caption": "(20) Light Switch · manual page 102",
+   "controls": [
+    "20"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Light Switch (20)",
+     "page": 102
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Light Switch (20)",
+   "narration": "Press the light switch once to activate Pattern 1, lighting the chassis work light D and cab lights F; press it twice for Pattern 2, adding boom light E."
+  },
+  {
+   "kind": "picture",
+   "image": "g01172131",
+   "caption": "(20) Light Switch · manual page 102",
+   "controls": [
+    "20"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Light Switch (20)",
+     "page": 102
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Light Switch (20)",
+   "narration": "When both indicator lights are off, all of the work lights are turned off.",
+   "follow_on": true
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "21",
+   "caption": "(21) Quick Coupler Control · manual page 102",
+   "controls": [
+    "21"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Quick Coupler Control (21)",
+     "page": 102
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Quick Coupler Control (21)",
+   "narration": "Moving the switch to LOCK engages the quick coupler with the work tool, while moving it to UNLOCKED disengages the coupler and triggers an alarm."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "22",
+   "caption": "(22) Lower Window Wiper · manual page 102",
+   "controls": [
+    "22"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Lower Window Wiper and Window Washer (22-23)",
+     "page": 102
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Lower Window Wiper and Window Washer (22-23)",
+   "narration": "Push down the top of switch (22) to turn the lower window wiper on, and push down the bottom portion of the switch to turn it off."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "23",
+   "caption": "(23) Lower Window Washer · manual page 102",
+   "controls": [
+    "23"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Lower Window Wiper and Window Washer (22-23)",
+     "page": 102
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Lower Window Wiper and Window Washer (22-23)",
+   "narration": "Press the top of the switch and hold it down to activate the lower window washer, causing fluid to spray from the nozzle; continuous operation beyond twenty seconds may cause motor failure."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "24",
+   "caption": "(24) Seat Heater · manual page 103",
+   "controls": [
+    "24"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Seat Heater (24)",
+     "page": 103
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Seat Heater (24)",
+   "narration": "In cold weather, press the top of the seat-heater switch to turn it on, and push the bottom to turn it off; the thermostat disables the heater when cabin temperature exceeds 10 °C."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "25",
+   "caption": "(25) Fine Swing Control · manual page 103",
+   "controls": [
+    "25"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Fine Swing Control (25) (If Equipped)",
+     "page": 103
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Fine Swing Control (25) (If Equipped)",
+   "narration": "Fine swing delays the swing parking brake for 6.5 seconds after the swing joystick returns to neutral, so the swing drifts instead of stopping abruptly. Turn it off on a slope."
+  },
+  {
+   "kind": "drawing",
+   "image": "g03666599",
+   "focus": "26",
+   "caption": "(26) Overload Warning Device · manual page 103",
+   "controls": [
+    "26"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Overload Warning Device (26) (If Equipped)",
+     "page": 103
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Overload Warning Device (26) (If Equipped)",
+   "narration": "When lifting, it sounds a buzzer if the load is unstable; then reduce the bucket load or move the stick inward. Push the right side of the switch to turn it on."
+  },
+  {
+   "kind": "picture",
+   "image": "g01615354",
+   "caption": "(26) Overload Warning Device · manual page 103",
+   "controls": [
+    "26"
+   ],
+   "manual": [
+    {
+     "title": "Operation Section > Operator Controls > Overload Warning Device (26) (If Equipped)",
+     "page": 103
+    }
+   ],
+   "source_title": "Operation Section > Operator Controls > Overload Warning Device (26) (If Equipped)",
+   "narration": "Push the left side of the switch to turn it off.",
+   "follow_on": true
+  },
+  {
+   "kind": "title",
+   "title": "Ask Cat",
+   "subtitle": "Pause the video and say \"Hey Cat, what does this do?\"",
+   "narration": "Pause this video at any control and ask Cat what it does."
+  }
+ ]
+}
