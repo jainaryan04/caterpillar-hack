@@ -15,7 +15,16 @@ from cat.pipeline import build_worker
 from cat.server import make_server
 
 
+def _ignore_client_resets(loop, context):
+    # Windows Proactor loop: a phone dropping a video stream mid-download (pause,
+    # seek) raises ConnectionResetError while closing the socket. Harmless.
+    if isinstance(context.get("exception"), ConnectionResetError):
+        return
+    loop.default_exception_handler(context)
+
+
 async def main():
+    asyncio.get_running_loop().set_exception_handler(_ignore_client_resets)
     cfg = load_config()
 
     # The transport is the only thing tied to "where the audio comes from".
