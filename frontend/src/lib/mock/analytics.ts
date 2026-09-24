@@ -91,7 +91,7 @@ export const utilizationByMachineType: { type: MachineType; utilization: number 
   { type: "wheel-loader", utilization: 79 },
   { type: "excavator", utilization: 76 },
   { type: "dozer", utilization: 71 },
-  { type: "articulated-truck", utilization: 64 },
+  { type: "drill-rig", utilization: 64 },
   { type: "motor-grader", utilization: 52 },
 ];
 

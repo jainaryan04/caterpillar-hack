@@ -1,5 +1,4 @@
 import {
-  BookOpenText,
   CalendarClock,
   ChartColumn,
   HardHat,
@@ -48,10 +47,7 @@ export const NAV_GROUPS: NavGroup[] = [
   },
   {
     label: "Insights",
-    items: [
-      { title: "Analytics", href: "/analytics", icon: ChartColumn },
-      { title: "Manual Assistant", href: "/assistant", icon: BookOpenText },
-    ],
+    items: [{ title: "Analytics", href: "/analytics", icon: ChartColumn }],
   },
 ];
 

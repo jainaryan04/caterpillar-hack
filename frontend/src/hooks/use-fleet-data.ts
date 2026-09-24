@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo } from "react";
-import { useQuery, type UseQueryResult } from "@tanstack/react-query";
-import { api, queryKeys } from "@/lib/api/client";
+import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
+import { api, health, mutations, queryKeys, type CreateTaskInput } from "@/lib/api/client";
 import type { Machine, Operator, SafetyAlert, Task, Zone } from "@/lib/types";
 import { useAlertStore } from "@/stores/alert-store";
 import { useNotificationStore } from "@/stores/notification-store";
@@ -18,21 +18,54 @@ function useGatedQuery<T>(query: UseQueryResult<T>): UseQueryResult<T> {
   return hydrated ? query : ({ ...query, data: undefined, isPending: true } as UseQueryResult<T>);
 }
 
-export const useMachines = () => useGatedQuery(useQuery({ queryKey: queryKeys.machines, queryFn: api.machines }));
-export const useOperators = () => useGatedQuery(useQuery({ queryKey: queryKeys.operators, queryFn: api.operators }));
-export const useTasks = () => useGatedQuery(useQuery({ queryKey: queryKeys.tasks, queryFn: api.tasks }));
-export const useZones = () => useGatedQuery(useQuery({ queryKey: queryKeys.zones, queryFn: api.zones }));
-export const useManuals = () => useGatedQuery(useQuery({ queryKey: queryKeys.manuals, queryFn: api.manuals }));
+// Machines/alerts move on their own (the backend's GPS/safety simulator ticks
+// every ~6s; a schedule publish can also change either at any moment), so
+// these poll instead of relying on the global staleTime: Infinity default.
+const LIVE_REFETCH_MS = 5000;
 
-/** Alerts with local UI state (acknowledge/resolve clicks) applied on top. */
+// retry: 0 is deliberate. Each attempt already has its own ~10s client-side
+// timeout (lib/api/client.ts), on top of the backend's own ~30s DB-pool
+// timeout when Postgres is unreachable -- react-query's default retry(3) with
+// backoff would stack those into a multi-minute wait before the UI could ever
+// show an error, which is exactly the "nothing shown" failure mode this is
+// fixing. refetchInterval keeps trying every 5s regardless.
+const LIVE_QUERY_OPTS = { refetchInterval: LIVE_REFETCH_MS, retry: 0 } as const;
+
+export const useMachines = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.machines, queryFn: api.machines, ...LIVE_QUERY_OPTS }));
+export const useOperators = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.operators, queryFn: api.operators, ...LIVE_QUERY_OPTS }));
+export const useTasks = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.tasks, queryFn: api.tasks, ...LIVE_QUERY_OPTS }));
+export const useZones = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.zones, queryFn: api.zones, retry: 1 }));
+
+export const useApiHealth = () =>
+  useQuery({ queryKey: queryKeys.health, queryFn: health, refetchInterval: LIVE_REFETCH_MS, retry: false });
+
+/** Single source of truth for the "live / reconnecting / offline" chip shown
+ * in the sidebar, top bar and map — all three otherwise defaulted to the
+ * hardcoded "demo" state and never agreed with the real backend. */
+export function useConnectionState(): "live" | "reconnecting" | "offline" {
+  const { data, isError } = useApiHealth();
+  if (isError) return "offline";
+  if (data?.database === "connected") return "live";
+  return "reconnecting";
+}
+
+/** Alerts with local UI state (the "responding"/"escalated" stages the
+ * backend has no field for) layered on top of the real ack/resolve status. */
 export function useAlerts() {
-  const query = useGatedQuery(useQuery({ queryKey: queryKeys.alerts, queryFn: api.alerts }));
+  const query = useGatedQuery(useQuery({ queryKey: queryKeys.alerts, queryFn: api.alerts, ...LIVE_QUERY_OPTS }));
   const overrides = useAlertStore((s) => s.overrides);
   const data = useMemo(
     () =>
       query.data?.map((a) => {
         const o = overrides[a.id];
-        return o ? { ...a, status: o.status, timeline: [...a.timeline, ...o.timeline] } : a;
+        // A real ack/resolve (status now acknowledged/resolved) always wins
+        // over a stale local "responding"/"escalated" overlay.
+        if (!o || a.status === "acknowledged" || a.status === "resolved") return a;
+        return { ...a, status: o.status, timeline: [...a.timeline, ...o.timeline] };
       }),
     [query.data, overrides],
   );
@@ -40,7 +73,9 @@ export function useAlerts() {
 }
 
 export function useNotifications() {
-  const query = useGatedQuery(useQuery({ queryKey: queryKeys.notifications, queryFn: api.notifications }));
+  const query = useGatedQuery(
+    useQuery({ queryKey: queryKeys.notifications, queryFn: api.notifications, ...LIVE_QUERY_OPTS }),
+  );
   const readIds = useNotificationStore((s) => s.readIds);
   const data = useMemo(
     () => query.data?.map((n) => (readIds.includes(n.id) ? { ...n, read: true } : n)),
@@ -81,4 +116,63 @@ export function useLookup(): EntityLookup {
       alert: (id) => (id ? a.get(id) : undefined),
     };
   }, [machines, operators, tasks, zones, alerts]);
+}
+
+// ----------------------------------------------------------------- mutations ---
+// Every one of these ends by invalidating the queries it affects, rather than
+// hand-rolling an optimistic cache update -- the next 5s poll (or this
+// explicit refetch) always reflects what the database actually did, which
+// matters most for createTask/replan since the solver's own numbers can
+// differ from any guess the client could make.
+
+export function useCreateTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (input: CreateTaskInput) => mutations.createTask(input),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.tasks });
+      qc.invalidateQueries({ queryKey: queryKeys.machines });
+      qc.invalidateQueries({ queryKey: queryKeys.operators });
+    },
+  });
+}
+
+export function useReplan() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: () => mutations.replan(),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.tasks });
+      qc.invalidateQueries({ queryKey: queryKeys.machines });
+      qc.invalidateQueries({ queryKey: queryKeys.operators });
+    },
+  });
+}
+
+export function useCompleteTask() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (taskId: string) => mutations.completeTask(taskId),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: queryKeys.tasks });
+      qc.invalidateQueries({ queryKey: queryKeys.machines });
+      qc.invalidateQueries({ queryKey: queryKeys.operators });
+    },
+  });
+}
+
+export function useAcknowledgeAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) => mutations.acknowledgeAlert(id, note),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.alerts }),
+  });
+}
+
+export function useResolveAlert() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: ({ id, note }: { id: string; note?: string }) => mutations.resolveAlert(id, note),
+    onSuccess: () => qc.invalidateQueries({ queryKey: queryKeys.alerts }),
+  });
 }

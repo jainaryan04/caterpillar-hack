@@ -13,6 +13,7 @@ import { FleetOverview } from "./fleet-overview";
 import { KpiRow } from "./kpi-row";
 import { MachineStatusPanel } from "./machine-status-panel";
 import { RecentActivity } from "./recent-activity";
+import { SchedulePanel } from "./schedule-panel";
 
 /** Operations overview — spec §5.1: "Is my operation healthy, and what needs me?" */
 export function DashboardView() {
@@ -54,6 +55,10 @@ export function DashboardView() {
         </div>
         <div className="min-w-0 xl:col-span-5">
           <FleetOverview machines={machines} operators={operators} zones={zones} alerts={alerts} />
+        </div>
+
+        <div className="min-w-0 xl:col-span-12">
+          <SchedulePanel tasks={tasks} operators={operators} />
         </div>
 
         <div className="min-w-0 xl:col-span-8">

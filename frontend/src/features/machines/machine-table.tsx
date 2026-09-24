@@ -42,11 +42,13 @@ export function MachineTable({ machines, lookup, selectedId, onSelect, toolbar, 
       {
         id: "runtime",
         header: "Runtime",
-        accessorFn: (m) => m.runtimeTodayMin,
+        accessorFn: (m) => m.runtimeTodayMin ?? -1,
         cell: ({ row: { original: m } }) => (
           <span className="flex flex-col items-end leading-tight">
-            <span className="font-mono">{formatDuration(m.runtimeTodayMin)}</span>
-            <span className="text-caption text-muted-foreground">{formatNumber(m.engineHours)} h total</span>
+            <span className="font-mono">{m.runtimeTodayMin != null ? formatDuration(m.runtimeTodayMin) : "—"}</span>
+            {m.engineHours != null ? (
+              <span className="text-caption text-muted-foreground">{formatNumber(m.engineHours)} h total</span>
+            ) : null}
           </span>
         ),
         meta: { align: "right", className: "hidden xl:table-cell" },

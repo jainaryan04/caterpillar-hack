@@ -65,7 +65,9 @@ export function MachineCard({ machine: m, operator, task, selected, onSelect }: 
         </div>
         <div className="flex flex-col gap-0.5 px-4 py-2.5">
           <dt className="eyebrow">Runtime</dt>
-          <dd className="font-mono text-small tabular-nums">{formatDuration(m.runtimeTodayMin)}</dd>
+          <dd className="font-mono text-small tabular-nums">
+            {m.runtimeTodayMin != null ? formatDuration(m.runtimeTodayMin) : "—"}
+          </dd>
         </div>
       </dl>
 

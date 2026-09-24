@@ -13,7 +13,10 @@ export function Providers({ children }: { children: ReactNode }) {
       new QueryClient({
         defaultOptions: {
           queries: {
-            // Mock data never changes; the socket layer will push updates later.
+            // No default polling: queries that move on their own (machines,
+            // alerts, tasks, operators) set their own refetchInterval in
+            // use-fleet-data.ts. Slow-moving data (zones, manuals) just
+            // doesn't refetch until invalidated.
             staleTime: Infinity,
             refetchOnWindowFocus: false,
           },

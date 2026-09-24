@@ -13,8 +13,10 @@ interface AlertState {
 }
 
 /**
- * Local-only alert state so the prototype's Acknowledge / Resolve buttons
- * respond. Replaced by server state + Socket.IO events in the backend phase.
+ * Local-only overlay for the two lifecycle stages the backend has no field
+ * for at all ("responding", "escalated" -- machine_safety_events only has
+ * OPEN/ACKNOWLEDGED/RESOLVED). Acknowledge and Resolve are real mutations
+ * (see hooks/use-fleet-data.ts) and never go through this store.
  */
 export const useAlertStore = create<AlertState>()((set) => ({
   overrides: {},

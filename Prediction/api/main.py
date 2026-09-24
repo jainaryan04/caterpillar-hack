@@ -16,6 +16,7 @@ marking work done.
 
 from __future__ import annotations
 
+import asyncio
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, Query
@@ -27,6 +28,7 @@ from .schemas import (AssignmentUpdate, PlanRequest, PlanResponse,
 from .service import PlanningError, run_plan, run_predict
 from .settings import settings
 from .store import StoreUnavailable, store
+from . import routes_live, simulator
 
 
 @asynccontextmanager
@@ -40,7 +42,21 @@ async def lifespan(app: FastAPI):
         load_model()
     except FileNotFoundError:
         pass
+
+    # GPS/safety telemetry simulator (Phase 7/8 tables) -- new, additive
+    # background task. Only runs when a database is configured; every v1
+    # route works identically with or without it.
+    sim_task = asyncio.create_task(simulator.run_forever()) if store.enabled else None
+
     yield
+
+    if sim_task is not None:
+        sim_task.cancel()
+        try:
+            await sim_task
+        except asyncio.CancelledError:
+            pass
+    simulator.close()
     store.close()
 
 
@@ -57,6 +73,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(routes_live.router)
 
 
 def _need_db():

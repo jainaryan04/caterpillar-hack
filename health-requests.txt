@@ -1,0 +1,6 @@
+17. [GET] http://localhost:8000/health => [FAILED] net::ERR_ABORTED
+32. [GET] http://localhost:8000/health => [FAILED] net::ERR_ABORTED
+44. [GET] http://localhost:8000/health => [FAILED] net::ERR_ABORTED
+56. [GET] http://localhost:8000/health => [FAILED] net::ERR_ABORTED
+
+Note: 14 static requests not shown, run with "static" option to see them.

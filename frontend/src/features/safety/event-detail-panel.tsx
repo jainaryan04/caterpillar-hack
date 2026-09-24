@@ -21,18 +21,22 @@ import { RelativeTime } from "@/components/shared/relative-time";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatTime } from "@/lib/format";
 import { alertCategoryLabel, alertStatusMeta, severityMeta } from "@/lib/status";
-import type { EntityLookup } from "@/hooks/use-fleet-data";
+import { useAcknowledgeAlert, useResolveAlert, type EntityLookup } from "@/hooks/use-fleet-data";
 import type { AlertStatus, SafetyAlert } from "@/lib/types";
 import { useAlertStore } from "@/stores/alert-store";
 
 type NoteAction = { status: Extract<AlertStatus, "resolved" | "escalated">; title: string; cta: string };
 
 const RESOLVE: NoteAction = { status: "resolved", title: "Resolve event", cta: "Resolve" };
+// "Escalated" has no backend field (machine_safety_events has OPEN/ACKNOWLEDGED/
+// RESOLVED only) -- kept as a local-only annotation on top of the real status.
 const ESCALATE: NoteAction = { status: "escalated", title: "Escalate to Operations Manager", cta: "Escalate" };
 
 /** Selected event: summary, timeline, responder, lifecycle actions — spec §5.7. */
 export function EventDetailPanel({ alert: a, lookup, onClose }: { alert?: SafetyAlert; lookup: EntityLookup; onClose: () => void }) {
   const setStatus = useAlertStore((s) => s.setStatus);
+  const acknowledgeAlert = useAcknowledgeAlert();
+  const resolveAlert = useResolveAlert();
   const [noteAction, setNoteAction] = useState<NoteAction | null>(null);
   const [note, setNote] = useState("");
   const [noteError, setNoteError] = useState(false);
@@ -48,9 +52,19 @@ export function EventDetailPanel({ alert: a, lookup, onClose }: { alert?: Safety
   const sev = severityMeta[a.severity];
   const operator = lookup.operator(a.operatorId);
   const zone = lookup.zone(a.zoneId);
-  const act = (status: AlertStatus, action: string) => {
-    setStatus(a.id, status, action);
-    toast.success(`${a.id}: ${alertStatusMeta[status].label.toLowerCase()}`);
+
+  const acknowledge = () =>
+    acknowledgeAlert.mutate(
+      { id: a.id },
+      {
+        onSuccess: () => toast.success(`${a.id}: acknowledged`),
+        onError: () => toast.error(`Couldn't acknowledge ${a.id}`),
+      },
+    );
+
+  const markResponding = () => {
+    setStatus(a.id, "responding", "Responder dispatched");
+    toast.success(`${a.id}: responding`);
   };
 
   const submitNote = () => {
@@ -58,7 +72,18 @@ export function EventDetailPanel({ alert: a, lookup, onClose }: { alert?: Safety
       setNoteError(true);
       return;
     }
-    act(noteAction!.status, `${noteAction!.cta}d — ${note.trim()}`);
+    if (noteAction!.status === "resolved") {
+      resolveAlert.mutate(
+        { id: a.id, note: note.trim() },
+        {
+          onSuccess: () => toast.success(`${a.id}: resolved`),
+          onError: () => toast.error(`Couldn't resolve ${a.id}`),
+        },
+      );
+    } else {
+      setStatus(a.id, "escalated", `Escalated — ${note.trim()}`);
+      toast.success(`${a.id}: escalated`);
+    }
     setNoteAction(null);
     setNote("");
     setNoteError(false);
@@ -134,12 +159,18 @@ export function EventDetailPanel({ alert: a, lookup, onClose }: { alert?: Safety
       {a.status !== "resolved" ? (
         <div className="flex flex-wrap gap-2 border-t p-4">
           {a.status === "open" ? (
-            <Button variant={a.category === "emergency" ? "critical" : "default"} size="lg" className="flex-1" onClick={() => act("acknowledged", "Acknowledged")}>
+            <Button
+              variant={a.category === "emergency" ? "critical" : "default"}
+              size="lg"
+              className="flex-1"
+              disabled={acknowledgeAlert.isPending}
+              onClick={acknowledge}
+            >
               <Siren /> Acknowledge
             </Button>
           ) : null}
           {a.status === "acknowledged" ? (
-            <Button className="flex-1" onClick={() => act("responding", "Responder dispatched")}>
+            <Button className="flex-1" onClick={markResponding}>
               <ArrowUpRight /> Mark responding
             </Button>
           ) : null}
@@ -190,7 +221,9 @@ export function EventDetailPanel({ alert: a, lookup, onClose }: { alert?: Safety
             <Button variant="ghost" onClick={() => setNoteAction(null)}>
               Cancel
             </Button>
-            <Button onClick={submitNote}>{noteAction?.cta}</Button>
+            <Button onClick={submitNote} disabled={resolveAlert.isPending}>
+              {noteAction?.cta}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

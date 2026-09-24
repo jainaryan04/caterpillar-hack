@@ -1,0 +1,126 @@
+- generic [active] [ref=e1]:
+  - generic [ref=e2]:
+    - link "Skip to content" [ref=e3] [cursor=pointer]:
+      - /url: "#main"
+    - generic [ref=e4]:
+      - complementary [ref=e5]:
+        - generic [ref=e6]:
+          - link "Go to dashboard" [ref=e8] [cursor=pointer]:
+            - /url: /dashboard
+            - generic [ref=e14]:
+              - generic [ref=e15]: CAT
+              - generic [ref=e16]: Fleet Ops
+          - 'button "Site: Pit 3 North" [ref=e18] [cursor=pointer]':
+            - generic [ref=e22]: Pit 3 North
+          - navigation "Main" [ref=e26]:
+            - generic [ref=e27]:
+              - generic [ref=e28]: Operations
+              - link "Dashboard" [ref=e29] [cursor=pointer]:
+                - /url: /dashboard
+              - link "Live Map" [ref=e36] [cursor=pointer]:
+                - /url: /map
+              - link "Safety & SOS" [ref=e40] [cursor=pointer]:
+                - /url: /safety
+            - generic [ref=e44]:
+              - generic [ref=e45]: Planning
+              - link "Tasks" [ref=e46] [cursor=pointer]:
+                - /url: /tasks
+            - generic [ref=e52]:
+              - generic [ref=e53]: Fleet
+              - link "Machines" [ref=e54] [cursor=pointer]:
+                - /url: /machines
+              - link "Operators" [ref=e61] [cursor=pointer]:
+                - /url: /operators
+            - generic [ref=e68]:
+              - generic [ref=e69]: Insights
+              - link "Analytics" [ref=e70] [cursor=pointer]:
+                - /url: /analytics
+              - link "Manual Assistant" [ref=e74] [cursor=pointer]:
+                - /url: /assistant
+          - generic [ref=e78]:
+            - 'status "Connection: Demo data" [ref=e79]':
+              - generic [ref=e81]: Demo data
+            - link "Settings" [ref=e82] [cursor=pointer]:
+              - /url: /settings
+        - button "Collapse sidebar" [ref=e87] [cursor=pointer]
+      - generic [ref=e91]:
+        - banner [ref=e92]:
+          - navigation "Breadcrumb" [ref=e94]:
+            - list [ref=e95]:
+              - listitem [ref=e96]: Operations
+              - listitem [aria-hidden] [ref=e97]
+              - listitem [ref=e100]:
+                - link "Dashboard" [ref=e101] [cursor=pointer]:
+                  - /url: /dashboard
+          - generic [ref=e102]:
+            - button "Search machines, operators, tasks" [ref=e103] [cursor=pointer]:
+              - generic [ref=e107]: Search machines, operators, tasks…
+              - generic [ref=e108]: ⌘K
+            - button "Notifications" [ref=e109] [cursor=pointer]
+            - button "Toggle light and dark theme" [ref=e110] [cursor=pointer]
+            - 'button "Account: Aryan Jain" [ref=e111] [cursor=pointer]':
+              - generic [ref=e112]: AJ
+        - main [ref=e114]:
+          - generic [ref=e115]:
+            - generic [ref=e117]:
+              - generic [ref=e118]:
+                - heading "Operations overview" [level=1] [ref=e119]
+                - generic [ref=e120]:
+                  - generic [ref=e121]: Pit 3 North
+                  - generic [aria-hidden] [ref=e122]: ·
+                  - generic [ref=e123]: Day shift 06:00–18:00
+              - link "Live map" [ref=e125] [cursor=pointer]:
+                - /url: /map
+            - generic [ref=e151]:
+              - generic [ref=e153]:
+                - generic [ref=e154]:
+                  - heading "Needs attention" [level=2] [ref=e156]
+                  - link "View all" [ref=e158] [cursor=pointer]:
+                    - /url: /safety
+                - generic "Loading table" [ref=e160]
+              - generic [ref=e183]:
+                - generic [ref=e184]:
+                  - generic [ref=e185]:
+                    - heading "Fleet overview" [level=2] [ref=e186]
+                    - paragraph [ref=e187]: Pit 3 North · schematic
+                  - link "Open map" [ref=e189] [cursor=pointer]:
+                    - /url: /map
+                - generic [ref=e190]:
+                  - link "Open live map" [ref=e191] [cursor=pointer]:
+                    - /url: /map
+                  - list [ref=e193]:
+                    - listitem [ref=e194]: Operating
+                    - listitem [ref=e196]: Idle / offline
+                    - listitem [ref=e198]: Fault
+                    - listitem [ref=e200]: Operator
+                    - listitem [ref=e202]: Restricted
+                    - listitem [ref=e204]: SOS
+              - generic [ref=e208]:
+                - generic [ref=e209]:
+                  - heading "Fleet utilization — this shift" [level=2] [ref=e210]
+                  - paragraph [ref=e211]: Hourly, engine-on productive hours ÷ available hours
+                - list [ref=e213]:
+                  - listitem [ref=e214]: Utilization
+                  - listitem [ref=e217]: Target 75%
+              - generic [ref=e223]:
+                - generic [ref=e224]:
+                  - heading "Machine status" [level=2] [ref=e226]
+                  - link "All machines" [ref=e228] [cursor=pointer]:
+                    - /url: /machines
+                - generic "Loading table" [ref=e230]
+              - generic [ref=e250]:
+                - generic [ref=e252]:
+                  - heading "Recent activity" [level=2] [ref=e253]
+                  - paragraph [ref=e254]: Today
+                - generic "Loading table" [ref=e256]
+              - generic [ref=e280]:
+                - generic [ref=e281]:
+                  - heading "Task throughput — 14 days" [level=2] [ref=e282]
+                  - paragraph [ref=e283]: Completed tasks per day
+                - list [ref=e285]:
+                  - listitem [ref=e286]: On time
+                  - listitem [ref=e289]: Late
+    - generic [ref=e295]:
+      - heading "Search" [level=2] [ref=e296]
+      - paragraph [ref=e297]: Find machines, operators, tasks and pages
+  - region "Notifications alt+T"

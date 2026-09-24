@@ -72,11 +72,13 @@ export function OperatorDrawer({ operator: o, tasks, lookup, onClose }: Operator
       footer={
         o ? (
           <>
-            <Button asChild variant="secondary">
-              <a href={`tel:${o.phone.replace(/\s/g, "")}`}>
-                <Phone /> Call
-              </a>
-            </Button>
+            {o.phone ? (
+              <Button asChild variant="secondary">
+                <a href={`tel:${o.phone.replace(/\s/g, "")}`}>
+                  <Phone /> Call
+                </a>
+              </Button>
+            ) : null}
             <Button asChild>
               <Link href="/tasks">
                 <CalendarPlus /> Assign task
@@ -100,7 +102,7 @@ export function OperatorDrawer({ operator: o, tasks, lookup, onClose }: Operator
                     </span>
                   ),
                 },
-                { label: "Phone", value: <span className="font-mono">{o.phone}</span> },
+                { label: "Phone", value: <span className="font-mono">{o.phone ?? "—"}</span> },
               ]}
             />
           </DrawerSection>

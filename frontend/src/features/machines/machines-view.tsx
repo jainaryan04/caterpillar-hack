@@ -11,7 +11,7 @@ import { PageContainer } from "@/components/shared/page-container";
 import { SearchBar } from "@/components/shared/search-bar";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { SummaryStrip } from "@/components/shared/summary-strip";
-import { useAlerts, useLookup, useMachines } from "@/hooks/use-fleet-data";
+import { useAlerts, useLookup, useMachines, useZones } from "@/hooks/use-fleet-data";
 import { useQueryParam } from "@/hooks/use-query-param";
 import { machineStatusMeta, machineTypeLabel } from "@/lib/status";
 import type { MachineStatus, MachineType } from "@/lib/types";
@@ -25,6 +25,7 @@ const STATUSES: MachineStatus[] = ["operating", "idle", "fault", "maintenance", 
 export function MachinesView() {
   const { data: machines } = useMachines();
   const { data: alerts } = useAlerts();
+  const { data: zones } = useZones();
   const lookup = useLookup();
   const [selectedId, setSelectedId] = useQueryParam("machine");
   const [status, setStatus] = useQueryParam("status");
@@ -154,6 +155,7 @@ export function MachinesView() {
       <MachineDrawer
         machine={machines?.find((m) => m.id === selectedId)}
         alerts={alerts ?? []}
+        zones={zones ?? []}
         lookup={lookup}
         onClose={() => setSelectedId(null)}
       />

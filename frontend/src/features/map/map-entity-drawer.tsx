@@ -13,11 +13,11 @@ import { RelativeTime } from "@/components/shared/relative-time";
 import { ShiftProgress } from "@/components/shared/shift-progress";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDuration } from "@/lib/format";
+import { pointInPolygon, zoneContaining } from "@/lib/geo";
 import { ENGINE_TEMP } from "@/lib/mock/machines";
 import { alertStatusMeta, availabilityMeta, engineTempTone, machineStatusMeta } from "@/lib/status";
-import type { EntityLookup } from "@/hooks/use-fleet-data";
-import type { Machine, Operator } from "@/lib/types";
-import { useAlertStore } from "@/stores/alert-store";
+import { useAcknowledgeAlert, type EntityLookup } from "@/hooks/use-fleet-data";
+import type { Machine, Operator, Zone } from "@/lib/types";
 import { toPlan, type MapSelection } from "./site-map";
 
 /** Plan units → metres (site is ~3.4 km across 1000 units). */
@@ -27,6 +27,7 @@ interface MapEntityDrawerProps {
   selection: NonNullable<MapSelection>;
   machines: Machine[];
   operators: Operator[];
+  zones: Zone[];
   lookup: EntityLookup;
   onClose: () => void;
 }
@@ -53,8 +54,8 @@ function Panel({ title, children, onClose, footer, accent }: { title: ReactNode;
 }
 
 /** Map selection drawer — spec §13: machine, operator, zone and SOS variants. */
-export function MapEntityDrawer({ selection, machines, operators, lookup, onClose }: MapEntityDrawerProps) {
-  const setStatus = useAlertStore((s) => s.setStatus);
+export function MapEntityDrawer({ selection, machines, operators, zones, lookup, onClose }: MapEntityDrawerProps) {
+  const acknowledgeAlert = useAcknowledgeAlert();
 
   if (selection.kind === "machine") {
     const m = lookup.machine(selection.id);
@@ -81,7 +82,7 @@ export function MapEntityDrawer({ selection, machines, operators, lookup, onClos
         <div className="grid grid-cols-3 gap-2">
           <MetricCard size="sm" label="km/h" value={m.velocityKph.toFixed(1)} stale={m.status === "offline"} />
           <MetricCard size="sm" label="°C" value={m.engineTempC} tone={engineTempTone(m.engineTempC, ENGINE_TEMP)} stale={m.status === "offline"} />
-          <MetricCard size="sm" label="Runtime" value={formatDuration(m.runtimeTodayMin)} stale={m.status === "offline"} />
+          <MetricCard size="sm" label="Runtime" value={m.runtimeTodayMin != null ? formatDuration(m.runtimeTodayMin) : "—"} stale={m.status === "offline"} />
         </div>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-small">
           <dt className="text-muted-foreground">Operator</dt>
@@ -89,7 +90,7 @@ export function MapEntityDrawer({ selection, machines, operators, lookup, onClos
           <dt className="text-muted-foreground">Task</dt>
           <dd className="truncate">{task ? `${task.id} · ${task.title}` : "—"}</dd>
           <dt className="text-muted-foreground">Zone</dt>
-          <dd>{lookup.zone(m.zoneId)?.name}</dd>
+          <dd>{zoneContaining(m.position, zones)?.name ?? "—"}</dd>
           <dt className="text-muted-foreground">Updated</dt>
           <dd>
             <RelativeTime iso={m.lastSeen} />
@@ -113,11 +114,13 @@ export function MapEntityDrawer({ selection, machines, operators, lookup, onClos
         }
         footer={
           <>
-            <Button asChild size="sm" variant="ghost">
-              <a href={`tel:${o.phone.replace(/\s/g, "")}`}>
-                <Phone /> Call
-              </a>
-            </Button>
+            {o.phone ? (
+              <Button asChild size="sm" variant="ghost">
+                <a href={`tel:${o.phone.replace(/\s/g, "")}`}>
+                  <Phone /> Call
+                </a>
+              </Button>
+            ) : null}
             <Button asChild size="sm" variant="secondary">
               <Link href={`/operators?operator=${o.id}`}>
                 Open profile <ExternalLink />
@@ -138,7 +141,7 @@ export function MapEntityDrawer({ selection, machines, operators, lookup, onClos
   if (selection.kind === "zone") {
     const z = lookup.zone(selection.id);
     if (!z) return null;
-    const inside = machines.filter((m) => m.zoneId === z.id);
+    const inside = machines.filter((m) => pointInPolygon(m.position, z.polygon));
     return (
       <Panel
         onClose={onClose}
@@ -209,10 +212,9 @@ export function MapEntityDrawer({ selection, machines, operators, lookup, onClos
             <Button
               size="sm"
               variant="critical"
-              onClick={() => {
-                setStatus(a.id, "acknowledged", "Acknowledged");
-                toast.success(`${a.id} acknowledged`);
-              }}
+              onClick={() =>
+                acknowledgeAlert.mutate({ id: a.id }, { onSuccess: () => toast.success(`${a.id} acknowledged`) })
+              }
             >
               Acknowledge
             </Button>

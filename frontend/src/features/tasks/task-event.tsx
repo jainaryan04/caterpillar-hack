@@ -15,6 +15,7 @@ const TYPE_CODE: Record<TaskType, string> = {
   loading: "LOD",
   grading: "GRD",
   dozing: "DOZ",
+  drilling: "DRL",
   inspection: "INS",
   maintenance: "MNT",
 };

@@ -433,5 +433,56 @@ class Store:
                           (run_id,)).rowcount
         return bool(n)
 
+    # --------------------------------------------------- live telemetry ---
+    # Added for the frontend's map/alerts screens (Phase 7/8 tables). Purely
+    # additive reads/writes over tables no v1 route touches -- nothing above
+    # this line changes.
+
+    def list_live_machines(self) -> list[dict]:
+        return self._rows("select * from v_machine_positions order by machine_id")
+
+    def list_zones(self) -> list[dict]:
+        return self._rows(
+            "select id, site_id, name, kind, polygon, active_window, rule"
+            " from zones order by id")
+
+    def list_alerts(self, status: str | None = None, limit: int = 300) -> list[dict]:
+        sql = """select e.*, a.machine_type as machine_type,
+                        b.machine_type as other_machine_type
+                   from machine_safety_events e
+                   join machines a on a.machine_id = e.machine_id
+                   left join machines b on b.machine_id = e.other_machine_id"""
+        params: list[Any] = []
+        if status:
+            sql += " where e.status = %s"
+            params.append(status)
+        sql += " order by e.severity desc, e.detected_at desc limit %s"
+        params.append(limit)
+        return self._rows(sql, tuple(params))
+
+    def set_alert_status(self, alert_id: int, status: str, note: str | None = None) -> dict:
+        """Acknowledge or resolve one safety event. `note` is appended to the
+        event's own `notes` column rather than a separate table -- the schema
+        already has a free-text field for exactly this."""
+        ts_col = {"ACKNOWLEDGED": "acknowledged_at", "RESOLVED": "resolved_at"}.get(status)
+        now = datetime.now().astimezone()
+        with self.pool.connection() as c, c.transaction(), c.cursor() as cur:
+            row = cur.execute("select id from machine_safety_events where id = %s",
+                              (alert_id,)).fetchone()
+            if row is None:
+                raise LookupError(alert_id)
+            sets, params = ["status = %s"], [status]
+            if ts_col:
+                sets.append(f"{ts_col} = %s")
+                params.append(now)
+            if note:
+                sets.append("notes = coalesce(notes || '; ', '') || %s")
+                params.append(note)
+            params.append(alert_id)
+            updated = cur.execute(
+                f"update machine_safety_events set {', '.join(sets)} where id = %s"
+                " returning *", tuple(params)).fetchone()
+        return dict(updated)
+
 
 store = Store()

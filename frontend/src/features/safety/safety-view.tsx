@@ -10,10 +10,9 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageContainer } from "@/components/shared/page-container";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { SummaryStrip } from "@/components/shared/summary-strip";
-import { useAlerts, useLookup, useZones } from "@/hooks/use-fleet-data";
+import { useAcknowledgeAlert, useAlerts, useLookup, useZones } from "@/hooks/use-fleet-data";
 import { useQueryParam } from "@/hooks/use-query-param";
 import type { AlertCategory, SafetyAlert, Severity } from "@/lib/types";
-import { useAlertStore } from "@/stores/alert-store";
 import { EventDetailPanel } from "./event-detail-panel";
 import { EventRow } from "./event-row";
 import { IncidentFormDialog } from "./incident-form-dialog";
@@ -27,7 +26,7 @@ export function SafetyView() {
   const { data: alerts } = useAlerts();
   const { data: zones } = useZones();
   const lookup = useLookup();
-  const setStatus = useAlertStore((s) => s.setStatus);
+  const acknowledgeAlert = useAcknowledgeAlert();
   const [selectedId, setSelectedId] = useQueryParam("event");
   const [tab, setTab] = useState<"active" | "log">("active");
   const [category, setCategory] = useState<AlertCategory | null>(null);
@@ -52,8 +51,13 @@ export function SafetyView() {
   const selected = alerts?.find((a) => a.id === selectedId) ?? (tab === "active" ? active[0] : undefined);
 
   const acknowledge = (a: SafetyAlert) => {
-    setStatus(a.id, "acknowledged", "Acknowledged");
-    toast.success(`${a.id} acknowledged`, { description: a.title });
+    acknowledgeAlert.mutate(
+      { id: a.id },
+      {
+        onSuccess: () => toast.success(`${a.id} acknowledged`, { description: a.title }),
+        onError: () => toast.error(`Couldn't acknowledge ${a.id}`),
+      },
+    );
   };
 
   return (

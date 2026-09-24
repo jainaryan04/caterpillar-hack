@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
-import { CalendarDays, List, Plus } from "lucide-react";
+import { CalendarDays, List, Loader2, Plus, RotateCw } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ALL, FilterSelect } from "@/components/shared/filter-select";
@@ -10,12 +10,18 @@ import { ChartSkeleton } from "@/components/shared/loading-skeleton";
 import { MetaDot, PageHeader } from "@/components/shared/page-header";
 import { PageContainer } from "@/components/shared/page-container";
 import { SegmentedControl } from "@/components/shared/segmented-control";
-import { useLookup, useMachines, useOperators, useTasks, useZones } from "@/hooks/use-fleet-data";
+import {
+  useCompleteTask,
+  useCreateTask,
+  useLookup,
+  useReplan,
+  useTasks,
+} from "@/hooks/use-fleet-data";
 import { useQueryParam } from "@/hooks/use-query-param";
-import { formatTime } from "@/lib/format";
 import { TASK_TYPES } from "@/lib/mock/tasks";
 import { taskStatusMeta, taskTypeLabel } from "@/lib/status";
-import type { Task, TaskStatus, TaskType } from "@/lib/types";
+import type { TaskStatus, TaskType } from "@/lib/types";
+import type { CreateTaskInput } from "@/lib/api/client";
 import { TaskDrawer } from "./task-drawer";
 import { TaskFormDialog } from "./task-form-dialog";
 import { TaskList } from "./task-list";
@@ -28,40 +34,26 @@ const TaskCalendar = dynamic(() => import("./task-calendar"), {
 
 type Mode = "calendar" | "list";
 
-interface FormState {
-  mode: "create" | "edit";
-  initial?: Partial<Task>;
-  key: number;
-}
-
 /**
- * Task scheduling — spec §5.2. Local edits (create, reschedule, complete) are
- * held in component state until the tasks API exists.
+ * Task scheduling — real data end to end. "New task" adds a task and
+ * re-runs the plan (POST /v1/plan); "Mark complete" marks its assignment
+ * done (PATCH /v1/assignments/{id}); "Replan" re-runs the plan as-is. There
+ * is no drag-to-reschedule or manual field edit: neither is a real backend
+ * capability (the solver owns timing/assignment, not a calendar drag).
  */
 export function TasksView() {
-  const { data: serverTasks } = useTasks();
-  const { data: machines } = useMachines();
-  const { data: operators } = useOperators();
-  const { data: zones } = useZones();
+  const { data: tasks } = useTasks();
   const lookup = useLookup();
+  const createTask = useCreateTask();
+  const completeTask = useCompleteTask();
+  const replan = useReplan();
 
   const [selectedId, setSelectedId] = useQueryParam("task");
   const [statusParam, setStatusParam] = useQueryParam("status");
   const [mode, setMode] = useState<Mode>(statusParam ? "list" : "calendar");
   const [typeFilter, setTypeFilter] = useState<TaskType | typeof ALL>(ALL);
   const statusFilter = (statusParam as TaskStatus | null) ?? ALL;
-
-  const [added, setAdded] = useState<Task[]>([]);
-  const [patches, setPatches] = useState<Record<string, Partial<Task>>>({});
-  const [form, setForm] = useState<FormState | null>(null);
-
-  const tasks = useMemo(
-    () =>
-      serverTasks
-        ? [...serverTasks, ...added].map((t) => (patches[t.id] ? { ...t, ...patches[t.id] } : t))
-        : undefined,
-    [serverTasks, added, patches],
-  );
+  const [formOpen, setFormOpen] = useState(false);
 
   const filtered = useMemo(
     () =>
@@ -75,14 +67,35 @@ export function TasksView() {
   const unscheduled = (filtered ?? []).filter((t) => !t.start);
   const delayedCount = tasks?.filter((t) => t.status === "delayed").length ?? 0;
   const filtersActive = statusFilter !== ALL || typeFilter !== ALL;
-  const nextId = `TSK-${2300 + added.length}`;
-
-  const patch = (id: string, p: Partial<Task>) => setPatches((s) => ({ ...s, [id]: { ...s[id], ...p } }));
 
   const clearFilters = () => {
     setTypeFilter(ALL);
     setStatusParam(null);
   };
+
+  const submitCreate = (input: CreateTaskInput) => {
+    createTask.mutate(input, {
+      onSuccess: () => {
+        toast.success("Task created and scheduled", {
+          description: `${input.priority ? `Priority ${input.priority} · ` : ""}${input.quantity} ${taskTypeLabel[input.type]}`,
+        });
+        setFormOpen(false);
+      },
+      onError: (e) => toast.error("Couldn't schedule the new task", { description: String(e) }),
+    });
+  };
+
+  const runReplan = () =>
+    replan.mutate(undefined, {
+      onSuccess: () => toast.success("Plan re-run"),
+      onError: (e) => toast.error("Replan failed", { description: String(e) }),
+    });
+
+  const markComplete = (id: string) =>
+    completeTask.mutate(id, {
+      onSuccess: () => toast.success(`${id} marked complete`),
+      onError: (e) => toast.error(`Couldn't complete ${id}`, { description: String(e) }),
+    });
 
   const filters = (
     <>
@@ -133,7 +146,10 @@ export function TasksView() {
                 { value: "list", label: "List", icon: List },
               ]}
             />
-            <Button onClick={() => setForm({ mode: "create", key: Date.now() })}>
+            <Button variant="secondary" onClick={runReplan} disabled={replan.isPending}>
+              {replan.isPending ? <Loader2 className="animate-spin" /> : <RotateCw />} Replan
+            </Button>
+            <Button onClick={() => setFormOpen(true)}>
               <Plus /> New task
             </Button>
           </>
@@ -144,35 +160,11 @@ export function TasksView() {
       {mode === "calendar" ? (
         <div className="grid min-h-0 flex-1 gap-4 lg:grid-cols-[260px_minmax(0,1fr)] 2xl:grid-cols-[300px_minmax(0,1fr)]">
           <div className="order-2 lg:order-1 lg:max-h-[calc(100dvh-15rem)]">
-            <UnscheduledTray
-              tasks={unscheduled}
-              onOpen={setSelectedId}
-              onSchedule={(t) => setForm({ mode: "edit", initial: t, key: Date.now() })}
-            />
+            <UnscheduledTray tasks={unscheduled} onOpen={setSelectedId} onSchedule={runReplan} />
           </div>
           <div className="order-1 min-w-0 overflow-hidden rounded-lg border bg-panel lg:order-2 lg:h-[calc(100dvh-15rem)]">
             {filtered ? (
-              <TaskCalendar
-                tasks={filtered}
-                lookup={lookup}
-                onSelectTask={setSelectedId}
-                onReschedule={(id, start, durationMin, revert) => {
-                  const before = tasks?.find((t) => t.id === id);
-                  patch(id, { start: start.toISOString(), durationMin });
-                  toast.success(`${id} rescheduled to ${formatTime(start)}`, {
-                    action: {
-                      label: "Undo",
-                      onClick: () => {
-                        revert();
-                        if (before) patch(id, { start: before.start, durationMin: before.durationMin });
-                      },
-                    },
-                  });
-                }}
-                onCreateRange={(start, durationMin) =>
-                  setForm({ mode: "create", initial: { start: start.toISOString(), durationMin }, key: Date.now() })
-                }
-              />
+              <TaskCalendar tasks={filtered} lookup={lookup} onSelectTask={setSelectedId} />
             ) : (
               <ChartSkeleton className="m-3 h-[560px]" />
             )}
@@ -194,36 +186,16 @@ export function TasksView() {
         task={selected}
         lookup={lookup}
         onClose={() => setSelectedId(null)}
-        onEdit={(t) => setForm({ mode: "edit", initial: t, key: Date.now() })}
-        onComplete={(t) => {
-          patch(t.id, { status: "completed" });
-          toast.success(`${t.id} marked complete`);
-        }}
+        onComplete={(t) => markComplete(t.id)}
+        completing={completeTask.isPending}
       />
 
-      {form && machines && operators && zones ? (
-        <TaskFormDialog
-          key={form.key}
-          open
-          onOpenChange={(o) => !o && setForm(null)}
-          mode={form.mode}
-          initial={form.initial}
-          nextId={nextId}
-          machines={machines}
-          operators={operators}
-          zones={zones}
-          onSubmit={(t) => {
-            if (form.mode === "create") {
-              setAdded((a) => [...a, t]);
-              toast.success(`${t.id} created`, { description: t.title });
-            } else {
-              patch(t.id, t);
-              toast.success(`${t.id} updated`);
-            }
-            setForm(null);
-          }}
-        />
-      ) : null}
+      <TaskFormDialog
+        open={formOpen}
+        onOpenChange={setFormOpen}
+        onSubmit={submitCreate}
+        submitting={createTask.isPending}
+      />
     </PageContainer>
   );
 }
