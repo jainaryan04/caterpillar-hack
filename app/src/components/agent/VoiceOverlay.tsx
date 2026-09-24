@@ -26,10 +26,12 @@ const phaseLabel: Record<VoicePhase, string> = {
 /**
  * Full-screen voice interaction, mounted once at the root so "Hey Cat", the
  * mic buttons and "Ask Cat about this" all open it over whatever screen the
- * operator is on. Driven by the live voice session (see useVoiceController).
+ * operator is on. Driven by the live voice session, or push-to-talk in Expo Go
+ * (see useVoiceController).
  */
 export function VoiceOverlay() {
-  const { voice, overlayVisible, cancelVoice, dismissVoice, startVoice, runAction, setChatContext, wakePhrase } = useAgent();
+  const { voice, overlayVisible, cancelVoice, dismissVoice, startVoice, runAction, setChatContext, wakePhrase, pushToTalk, finishTalking } =
+    useAgent();
   const insets = useSafeAreaInsets();
   const { phase, response } = voice;
   const fromVideo = !!voice.context?.videoId;
@@ -85,7 +87,7 @@ export function VoiceOverlay() {
                 </AppText>
               ) : (
                 <AppText variant="heading" tone="secondary" style={styles.center_text}>
-                  Say “{wakePhrase}”, then your question
+                  {pushToTalk ? 'Ask your question. Cat sends it when you stop talking.' : `Say “${wakePhrase}”, then your question`}
                 </AppText>
               )}
               {voice.status ? (
@@ -170,6 +172,11 @@ export function VoiceOverlay() {
             <View style={styles.row}>
               <ActionButton label="Close" variant="secondary" onPress={dismissVoice} style={styles.flex} />
               <ActionButton label="Try again" icon="microphone" onPress={() => startVoice(voice.context)} style={styles.flex} />
+            </View>
+          ) : pushToTalk && phase === 'listening' && !voice.transcript ? (
+            <View style={styles.row}>
+              <ActionButton label="Cancel" icon="close" variant="secondary" onPress={cancelVoice} style={styles.flex} />
+              <ActionButton label="Send" icon="send" onPress={finishTalking} style={styles.flex} />
             </View>
           ) : (
             <ActionButton

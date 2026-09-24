@@ -21,6 +21,7 @@ URLs in responses are absolute. There's no auth yet, so use a trusted network.
 | `POST /api/app/photo/mark` | `ImageAnalysis` | Circling again on the same photo |
 | `GET /api/app/manual/open` | Manual page image | "Open it" / "Show me the page" |
 | `POST /api/app/screen/clear` | `{cleared}` | The video plays again, or the photo is closed |
+| `POST /api/app/voice` (multipart) | `AgentResponse` + `audioUrl` | Push-to-talk (Expo Go, no live voice) |
 
 `sessionId` is optional on every call (default `"local"`). With the default, the laptop's voice session
 ("Hey Cat, what does this do?") sees the same pause or photo as the app. Give each phone its own id when
@@ -142,7 +143,24 @@ This returns the manual page(s) behind the last answer, or behind what's on scre
 
 With nothing to open it returns `{ "opened": false, "message": "..." }`. Add `&page=96` to open a given page.
 
-## 5. Videos: `GET /api/app/videos`
+## 5. Push-to-talk: `POST /api/app/voice` (multipart)
+
+For phones without the live voice session (Expo Go has no WebRTC). The app records one question and sends it:
+
+| Field | |
+|---|---|
+| `file` | the recording (m4a/AAC from `expo-audio`, or wav/mp3), ≤ 10 MB |
+| `context` | optional JSON `AgentContext`, as for `/agent/message` (a paused video, a photo) |
+| `sessionId` | optional |
+
+Cat transcribes it (Deepgram nova-3), drops a leading "Hey Cat", and answers exactly like `/agent/message`.
+"Open it" / "show me the page" opens the manual pages instead. The response is an `AgentResponse` plus:
+- `transcript`: what Cat heard (`""` if nothing; the answer then says it didn't catch that);
+- `audioUrl`: `GET /api/app/voice/{id}.mp3`, Cat's spoken answer. It streams while Deepgram synthesises it,
+  so play it straight away. Replies expire after 10 minutes;
+- `pages`: for "open it", the manual pages (as `/manual/open` returns them), else `null`.
+
+## 6. Videos: `GET /api/app/videos`
 
 This returns `TrainingVideo[]`:
 - `videoUrl` is a playable mp4 (with HTTP range requests).

@@ -56,3 +56,13 @@ export interface CatTrainingVideo {
   posterUrl?: string | null;
   subtitlesUrl?: string | null;
 }
+
+/** POST /api/app/voice (push-to-talk): the answer, plus what Cat heard and its spoken reply. */
+export interface CatVoiceReply extends CatAgentResponse {
+  /** What Cat heard, without "Hey Cat" ("" if nothing). */
+  transcript: string;
+  /** MP3 of the answer, streamed while it's synthesised. */
+  audioUrl: string | null;
+  /** "Open it": the manual pages to show. */
+  pages: { url: string; page: number; pageEnd?: number; topic?: string | null; width: number; height: number } | null;
+}

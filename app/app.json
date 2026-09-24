@@ -62,7 +62,8 @@
           }
         }
       ],
-      "@daily-co/config-plugin-rn-daily-js"
+      "@daily-co/config-plugin-rn-daily-js",
+      "expo-audio"
     ],
     "scheme": "catoperator",
     "backgroundColor": "#0B0B0B",

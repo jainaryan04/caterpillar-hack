@@ -84,6 +84,12 @@ export interface VoiceService {
    * Real implementations leave this undefined.
    */
   simulateUtterance?: (context?: AgentContext) => void;
+  /** Push-to-talk (no live session): each tap records one question and plays the answer. */
+  readonly pushToTalk?: boolean;
+  /** Push-to-talk: record a question (stops by itself when the operator stops talking). */
+  talk?: (context?: AgentContext) => void;
+  /** Push-to-talk: stop recording now and send. */
+  finishTalking?: () => void;
 }
 
 export interface MediaService {

@@ -7,13 +7,17 @@ import { CatOrb } from './CatOrb';
 /**
  * Voice entry point on the Cat tab. With live voice, "Hands-free" keeps a
  * session open so "Hey Cat" works from any screen; tapping the bar opens the
- * listening view. Without it (Expo Go / mock mode), the tap runs the demo voice.
+ * listening view. In Expo Go the tap starts push-to-talk; in mock mode, the demo voice.
  */
 export function WakeWordBar() {
-  const { startVoice, handsFree, connectVoice, disconnectVoice, voiceConnection, voiceConnectionDetail, voiceIsLive, wakePhrase } =
+  const { startVoice, handsFree, connectVoice, disconnectVoice, voiceConnection, voiceConnectionDetail, voiceIsLive, wakePhrase, pushToTalk } =
     useAgent();
   const listening = voiceIsLive && voiceConnection === 'connected';
-  const sub = !voiceIsLive
+  const sub = pushToTalk
+    ? voiceConnection === 'error'
+      ? voiceConnectionDetail ?? 'Cat did not answer'
+      : 'Tap, ask your question, and Cat answers out loud'
+    : !voiceIsLive
     ? 'Demo: tap to hear a sample question'
     : voiceConnection === 'connecting'
       ? 'Connecting to Cat…'
@@ -34,7 +38,7 @@ export function WakeWordBar() {
       >
         <CatOrb phase={listening ? 'listening' : 'idle'} size={40} />
         <View style={{ flex: 1 }}>
-          <AppText variant="bodyStrong">Say “{wakePhrase}” to talk</AppText>
+          <AppText variant="bodyStrong">{pushToTalk ? 'Tap to talk to Cat' : `Say “${wakePhrase}” to talk`}</AppText>
           <AppText variant="small" tone={voiceConnection === 'error' ? 'warning' : 'muted'} numberOfLines={2}>
             {sub}
           </AppText>

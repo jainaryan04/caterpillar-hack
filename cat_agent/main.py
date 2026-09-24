@@ -1,6 +1,7 @@
-"""Run Cat locally: talks through your laptop mic and speakers.
+"""Run Cat locally: talks through your laptop mic and speakers, and serves the phone app.
 
     uv run main.py
+    CAT_LAPTOP_VOICE=false uv run main.py    # phone app only: laptop mic and speakers off
 """
 
 import asyncio
@@ -10,13 +11,33 @@ from loguru import logger
 from pipecat.transports.local.audio import LocalAudioTransport, LocalAudioTransportParams
 from pipecat.workers.runner import WorkerRunner
 
+from cat import part_recognition, photo_match
 from cat.config import load_config
 from cat.pipeline import build_worker
+from cat.rag import sections
+from cat.rag.store import get_store
 from cat.server import make_server
+
+
+async def phones_only(cfg):
+    """CAT_LAPTOP_VOICE=false: just the API, for the phone app (push-to-talk, /api/offer)."""
+    server = make_server(cfg.http_host, cfg.http_port)
+    logger.info(f"Operator API on http://localhost:{cfg.http_port}. Laptop mic and speakers are off (CAT_LAPTOP_VOICE=false).")
+    # What the laptop session would warm up while saying hello.
+    warm = asyncio.gather(
+        get_store().warm_up(), *(asyncio.to_thread(m.warm) for m in (sections, photo_match, part_recognition))
+    )
+    try:
+        await server.serve()
+    finally:
+        warm.cancel()
 
 
 async def main():
     cfg = load_config()
+    if not cfg.laptop_voice:
+        await phones_only(cfg)
+        return
 
     # The transport is the only thing tied to "where the audio comes from".
     # Later this can become a WebRTC transport (browser / in-cab tablet) without

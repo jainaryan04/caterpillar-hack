@@ -303,14 +303,19 @@ export function useVoiceController({
       });
       setHandsFree(true);
       voiceService.connect().then(() => {
-        if (!voiceService.live) voiceService.simulateUtterance?.(ctx);
+        if (voiceService.talk) voiceService.talk(ctx);
+        else if (!voiceService.live) voiceService.simulateUtterance?.(ctx);
       });
     },
     [clearTimers, setVoice, showOverlay],
   );
 
+  const finishTalking = useCallback(() => voiceService.finishTalking?.(), []);
+
   const cancelVoice = useCallback(() => {
     clearTimers();
+    // Push-to-talk: stop recording / Cat's reply too (the live session keeps listening).
+    if (voiceService.pushToTalk) voiceService.disconnect();
     showOverlay(false);
     setVoice(IDLE);
   }, [clearTimers, setVoice, showOverlay]);
@@ -329,6 +334,8 @@ export function useVoiceController({
     voiceIsLive: voiceService.live,
     wakePhrase: voiceService.wakePhrase,
     canSimulate: typeof voiceService.simulateUtterance === 'function',
+    pushToTalk: !!voiceService.pushToTalk,
+    finishTalking,
     simulateUtterance: (ctx?: AgentContext) => startVoice(ctx),
   };
 }

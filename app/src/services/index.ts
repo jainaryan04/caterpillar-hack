@@ -4,7 +4,8 @@
  * - Fleet Scheduler API (Prediction/): operators, tasks, connection status
  * - Cat agent (cat_agent/): questions, photos, training videos
  * - Cat agent live voice (WebRTC, dev build only): wake phrase, speech in/out
- *   In Expo Go or mock mode a demo voice stands in (no microphone).
+ *   In Expo Go: push-to-talk with Cat over HTTP (tap, ask, hear the answer).
+ *   In mock mode a demo voice stands in (no microphone).
  *
  * Set EXPO_PUBLIC_USE_MOCKS=1 to run everything on mock data.
  */
@@ -18,6 +19,7 @@ import { mockOperatorService } from './mock/mockOperatorService';
 import { mockTaskService } from './mock/mockTaskService';
 import { mockVideoService } from './mock/mockVideoService';
 import { createMockVoiceService } from './mock/mockVoiceService';
+import { catTalkVoiceService } from './cat/catTalkVoiceService';
 import { catVoiceService, liveVoiceSupported } from './cat/catVoiceService';
 import type {
   AgentService,
@@ -38,13 +40,11 @@ export const connectionService: ConnectionService = fleetMocks ? mockConnectionS
 export const agentService: AgentService = mocks ? mockAgentService : catAgentService;
 export const mediaService: MediaService = mocks ? mockMediaService : catMediaService;
 export const videoService: VideoService = mocks ? mockVideoService : catVideoService;
-export const voiceService: VoiceService =
-  !mocks && liveVoiceSupported
+export const voiceService: VoiceService = mocks
+  ? createMockVoiceService((q, ctx) => agentService.sendMessage(q, ctx), 'Demo voice (mock mode)')
+  : liveVoiceSupported
     ? catVoiceService
-    : createMockVoiceService(
-        (q, ctx) => agentService.sendMessage(q, ctx),
-        mocks ? 'Demo voice (mock mode)' : 'Demo voice: live voice needs the development build',
-      );
+    : catTalkVoiceService;
 
 export * from './types';
 export { ApiError } from './http';

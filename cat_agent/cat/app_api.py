@@ -9,6 +9,7 @@ a matter of calling them:
     MediaService.analyzeMachineryPhoto  ->  POST /api/app/photo/analyze (multipart)       ImageAnalysis
     (circle again on the same photo)    ->  POST /api/app/photo/mark                      ImageAnalysis
     ("open it": the manual pages)       ->  GET  /api/app/manual/open                     ManualPagesView
+    (push-to-talk, no live voice)       ->  POST /api/app/voice (multipart)               AgentResponse + audioUrl
 
 Every answer comes from the Cat 320D manual (RAG), in one of three ways:
   - a general question ("how do I wear the seat belt?") -> hybrid search + machine expert;
@@ -28,6 +29,8 @@ import uuid
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
+from fastapi.responses import StreamingResponse
+from loguru import logger
 from pydantic import BaseModel, ConfigDict, Field
 
 from cat.display import IMAGE_URL_PREFIX, PAGES_URL_PREFIX
@@ -261,29 +264,37 @@ async def agent_message(request: Request, body: MessageIn):
     from it; questions that name something are answered by manual search.
     `mode` forces one or the other.
     """
+    t0 = time.perf_counter()
+    answer, seen, kind = await _answer(body.message, body.context, body.sessionId, body.mode)
+    return _agent_response(request, answer, seen, kind, 1000 * (time.perf_counter() - t0))
+
+
+async def _answer(
+    message: str, ctx: AgentContext | None, session_id: str, mode: str = "auto"
+) -> tuple[ExpertAnswer, dict | None, str]:
+    """(answer, what was on screen, "screen" | "manual") for a question, typed or spoken."""
     from cat.server import report_video_pause  # avoid an import cycle
 
-    t0 = time.perf_counter()
-    ctx = body.context or AgentContext()
+    ctx = ctx or AgentContext()
     if ctx.videoId is not None and ctx.timestamp is not None:
         try:
-            await report_video_pause(ctx.videoId, ctx.timestamp, ctx.tap, body.sessionId, ctx.circle)
+            await report_video_pause(ctx.videoId, ctx.timestamp, ctx.tap, session_id, ctx.circle)
         except KeyError:
             raise HTTPException(404, f"no such video: {ctx.videoId}")
-    on_screen = get_screen_store().get(body.sessionId) is not None
-    points = bool(_POINTING.search(body.message)) or ctx.tap is not None or ctx.circle is not None
+    on_screen = get_screen_store().get(session_id) is not None
+    points = bool(_POINTING.search(message)) or ctx.tap is not None or ctx.circle is not None
     # "What does this do?" with nothing on screen is about the screen too: Cat says it can't see
     # anything, rather than searching the manual for "this".
-    use_screen = body.mode == "screen" or (body.mode == "auto" and (points or (on_screen and ctx.imageUri)))
+    use_screen = mode == "screen" or (mode == "auto" and (points or (on_screen and ctx.imageUri)))
     if use_screen:
-        answer, seen = await answer_about_screen(body.message, body.sessionId)
+        answer, seen = await answer_about_screen(message, session_id)
         if answer is None:
             answer, seen = ExpertAnswer(NOTHING_ON_SCREEN), None
-        remember_answer(body.message, answer)
-        return _agent_response(request, answer, seen, "screen", 1000 * (time.perf_counter() - t0))
-    answer = await answer_from_manual(body.message)
-    remember_answer(body.message, answer)
-    return _agent_response(request, answer, None, "manual", 1000 * (time.perf_counter() - t0))
+        remember_answer(message, answer)
+        return answer, seen, "screen"
+    answer = await answer_from_manual(message)
+    remember_answer(message, answer)
+    return answer, None, "manual"
 
 
 @router.post("/photo/analyze")
@@ -359,3 +370,89 @@ def screen_clear(body: Mark):
     """The video is playing again (or the photo was dismissed): "this" no longer means it."""
     get_screen_store().clear(body.sessionId)
     return {"cleared": True}
+
+
+# ---------- push-to-talk ----------
+
+MAX_AUDIO_BYTES = 10 * 1024 * 1024
+DIDNT_CATCH = "I didn't catch that. Tap the mic and ask again."
+# "Open it", "show me the page", "open the manual for this": show pages, don't search.
+_OPEN_IT = re.compile(r"\b(open|show)\b.*\b(it|that|this|page|pages|manual)\b", re.IGNORECASE)
+
+
+@router.post("/voice")
+async def voice(
+    request: Request,
+    file: UploadFile = File(..., description="The recorded question (m4a / 3gp / wav)"),
+    context: str | None = Form(None, description="JSON AgentContext, as for /agent/message"),
+    sessionId: str = Form(LOCAL_SESSION),
+):
+    """Push-to-talk: a recorded question in, an AgentResponse plus Cat's spoken answer out.
+
+    For phones without the live voice session (Expo Go). Extras: `transcript` (what
+    Cat heard, without "Hey Cat"), `audioUrl` (MP3 of the answer) and, for "open
+    it", `pages` (the manual pages, as GET /manual/open returns them).
+    """
+    from cat.speech import queue_reply, transcribe
+    from cat.wake_word import strip_wake_phrase
+
+    t0 = time.perf_counter()
+    audio = await file.read(MAX_AUDIO_BYTES + 1)
+    if len(audio) > MAX_AUDIO_BYTES:
+        raise HTTPException(413, "recording too long")
+    try:
+        ctx = AgentContext.model_validate_json(context) if context else None
+    except ValueError:
+        raise HTTPException(400, "context must be a JSON AgentContext")
+    try:
+        heard = await transcribe(audio, file.content_type)
+    except Exception as e:
+        raise HTTPException(502, f"speech-to-text failed: {e}")
+    question = strip_wake_phrase(heard).strip(" ,.")
+    t_heard = time.perf_counter()
+
+    pages = None
+    if not question:
+        answer, seen, kind = ExpertAnswer(DIDNT_CATCH), None, "none"
+    elif _OPEN_IT.search(question):
+        found = await find_pages(0, sessionId)
+        if isinstance(found, str):
+            answer, seen, kind = ExpertAnswer(found), None, "manual"
+        else:
+            opened, topic = found
+            answer, seen, kind = ExpertAnswer(f"I've opened {opened.label()} of the manual."), None, "manual"
+            pages = {
+                "page": opened.first,
+                "pageEnd": opened.last,
+                "topic": topic,
+                "url": _absolute(request, f"{PAGES_URL_PREFIX}{opened.path.name}"),
+                "width": opened.width,
+                "height": opened.height,
+            }
+    else:
+        answer, seen, kind = await _answer(question, ctx, sessionId)
+
+    # The phone plays this URL; speech is made while it streams (see voice_audio).
+    audio_url = _absolute(request, f"/api/app/voice/{queue_reply(answer.text)}.mp3")
+    t_end = time.perf_counter()
+    logger.info(
+        f"PUSH-TO-TALK: {question!r} -> {answer.text!r} "
+        f"(heard {1000 * (t_heard - t0):.0f}ms, answer {1000 * (t_end - t_heard):.0f}ms)"
+    )
+    return {
+        **_agent_response(request, answer, seen, kind, 1000 * (t_end - t0)),
+        "transcript": question,
+        "audioUrl": audio_url,
+        "pages": pages,
+    }
+
+
+@router.get("/voice/{reply_id}.mp3")
+async def voice_audio(reply_id: str):
+    """A push-to-talk answer spoken in Cat's voice, streamed as it's synthesised."""
+    from cat.speech import reply_text, stream_speech
+
+    text = reply_text(reply_id)
+    if text is None:
+        raise HTTPException(404, "no such reply (they expire after 10 minutes)")
+    return StreamingResponse(stream_speech(text), media_type="audio/mpeg")

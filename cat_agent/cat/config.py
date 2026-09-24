@@ -80,6 +80,7 @@ class Config:
     # HTTP API for the phone app (cat/server.py)
     http_host: str
     http_port: int
+    laptop_voice: bool  # talk through the laptop's own mic and speakers (off: API and phones only)
 
 
 def load_config() -> Config:
@@ -124,4 +125,5 @@ def load_config() -> Config:
         wake_timeout_secs=_env_float("CAT_WAKE_TIMEOUT_SECS", 10),
         http_host=os.getenv("CAT_HTTP_HOST", "0.0.0.0"),
         http_port=int(_env_float("CAT_HTTP_PORT", 8765)),
+        laptop_voice=_env_bool("CAT_LAPTOP_VOICE", True),
     )

@@ -44,6 +44,10 @@ interface AgentState {
   disconnectVoice: () => Promise<void>;
   /** False when a demo voice stands in (Expo Go / mock mode). */
   voiceIsLive: boolean;
+  /** Push-to-talk (Expo Go): each tap records one question, no wake phrase. */
+  pushToTalk: boolean;
+  /** Push-to-talk: stop recording now and send. */
+  finishTalking: () => void;
   wakePhrase: string;
 
   /** What the current screen is showing; attached to wake-word questions. */
@@ -234,6 +238,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       connectVoice: voiceCtl.connectVoice,
       disconnectVoice: voiceCtl.disconnectVoice,
       voiceIsLive: voiceCtl.voiceIsLive,
+      pushToTalk: voiceCtl.pushToTalk,
+      finishTalking: voiceCtl.finishTalking,
       wakePhrase: voiceCtl.wakePhrase,
       setScreenContext,
       chatContext,
@@ -261,6 +267,8 @@ export function AgentProvider({ children }: { children: ReactNode }) {
       voiceCtl.connectVoice,
       voiceCtl.disconnectVoice,
       voiceCtl.voiceIsLive,
+      voiceCtl.pushToTalk,
+      voiceCtl.finishTalking,
       voiceCtl.wakePhrase,
       setScreenContext,
       chatContext,

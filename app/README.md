@@ -10,7 +10,7 @@ Data comes from two backends in this repo (neither was modified for the app):
 | `Prediction/` Fleet Scheduler API | Worker list, my tasks (assignments in the published plan), start/complete, `/health` | `http://10.0.2.2:8000` |
 | `cat_agent/` Cat phone API | Cat answers, photo check, training videos, manual pages | `http://10.0.2.2:8765` |
 
-Voice (wake word, speech-to-text) is still mocked on the phone.
+Voice is live: "Hey Cat" over WebRTC in a development build, push-to-talk in Expo Go (see Voice).
 
 ## Run
 
@@ -27,6 +27,8 @@ npx expo start -c       # press "a" for Android
 ```
 
 `EXPO_PUBLIC_USE_MOCKS=1` in `.env` runs the whole app on built-in mock data, with no servers.
+`EXPO_PUBLIC_MOCK_FLEET=1` mocks only the Fleet API (workers, tasks) and keeps Cat live, to test the agent
+without `Prediction/`. Open videos from the Learn tab then (mock tasks link videos Cat doesn't have).
 
 **What the Fleet API must have:** rosters synced (`POST /v1/rosters/sync`) and a run published
 (`POST /v1/plan` with `"publish": true`, or `POST /v1/runs/{id}/publish`). Without a published run,
@@ -41,8 +43,11 @@ speech-to-text and voice, manual tools. Its RTVI events drive the overlay (liste
 Cat speaking → answered) and push manual pictures and pages to the screen.
 
 - **Needs a development build** (native WebRTC): `npx expo run:android` with the Android SDK, or
-  `eas build --profile development --platform android`. In **Expo Go** a demo voice stands in
-  (scripted question, real answers from Cat over HTTP, no microphone or audio).
+  `eas build --profile development --platform android`.
+- **In Expo Go: push-to-talk.** Tap any mic, ask (no "Hey Cat" needed). Recording stops about a
+  second after you stop talking (or tap **Send**). The clip goes to `POST /api/app/voice`; Cat's
+  answer shows at once and is spoken through the phone's speaker (`catTalkVoiceService.ts`).
+  `EXPO_PUBLIC_USE_MOCKS=1` still uses the scripted demo voice.
 - **Hands-free:** turn it on from the Cat tab (or tap any mic). The session listens for "Hey Cat"
   from every screen while the app is open, and stops in the background.
 - **Networking:** WebRTC audio is UDP straight between the phone and the Cat server. The phone must

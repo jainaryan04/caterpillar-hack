@@ -11,6 +11,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { TalkRecorderHost } from '@/components/agent/TalkRecorderHost';
 import { VoiceOverlay } from '@/components/agent/VoiceOverlay';
 import { AgentProvider } from '@/state/AgentProvider';
 import { SessionProvider, useSession } from '@/state/SessionProvider';
@@ -55,6 +56,7 @@ export default function RootLayout() {
             <StatusBar style="light" />
             <AppStack />
             <VoiceOverlay />
+            <TalkRecorderHost />
           </AgentProvider>
         </SessionProvider>
       </ThemeProvider>
