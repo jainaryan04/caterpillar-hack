@@ -5,8 +5,17 @@ import { Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MetaDot, PageHeader } from "@/components/shared/page-header";
 import { PageContainer } from "@/components/shared/page-container";
-import { CURRENT_SHIFT } from "@/config/site";
-import { useAlerts, useLookup, useMachines, useOperators, useTasks, useZones } from "@/hooks/use-fleet-data";
+import { formatDate, formatDuration } from "@/lib/format";
+import {
+  useAlerts,
+  useLookup,
+  useMachines,
+  useOperators,
+  useRunSummary,
+  useSite,
+  useTasks,
+  useZones,
+} from "@/hooks/use-fleet-data";
 import { AttentionQueue } from "./attention-queue";
 import { UtilizationChart, WorkloadChart } from "./dashboard-charts";
 import { FleetOverview } from "./fleet-overview";
@@ -22,7 +31,9 @@ export function DashboardView() {
   const { data: tasks } = useTasks();
   const { data: alerts } = useAlerts();
   const { data: zones } = useZones();
+  const { data: run } = useRunSummary();
   const lookup = useLookup();
+  const site = useSite();
 
   return (
     <PageContainer className="flex flex-col gap-4 lg:gap-5">
@@ -31,11 +42,16 @@ export function DashboardView() {
         className="pb-0"
         description={
           <>
-            <span>Pit 3 North</span>
-            <MetaDot />
-            <span>
-              {CURRENT_SHIFT.name} <span className="tabular-nums">{CURRENT_SHIFT.window}</span>
-            </span>
+            <span>{site}</span>
+            {run ? (
+              <>
+                <MetaDot />
+                <span>
+                  Plan from {formatDate(run.horizon_start)} ·{" "}
+                  <span className="tabular-nums">{formatDuration(run.makespan_min)}</span> makespan
+                </span>
+              </>
+            ) : null}
           </>
         }
         actions={

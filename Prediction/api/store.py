@@ -446,6 +446,11 @@ class Store:
             "select id, site_id, name, kind, polygon, active_window, rule"
             " from zones order by id")
 
+    def list_zone_assignments(self) -> list[dict]:
+        return self._rows(
+            "select machine_id, zone_id from machine_zone_assignments"
+            " order by machine_id, zone_id")
+
     def list_alerts(self, status: str | None = None, limit: int = 300) -> list[dict]:
         sql = """select e.*, a.machine_type as machine_type,
                         b.machine_type as other_machine_type

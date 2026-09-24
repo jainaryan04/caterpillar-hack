@@ -7,7 +7,7 @@ import { ALL, FilterSelect } from "@/components/shared/filter-select";
 import { MetaDot, PageHeader } from "@/components/shared/page-header";
 import { PageContainer } from "@/components/shared/page-container";
 import { SummaryStrip } from "@/components/shared/summary-strip";
-import { useLookup, useOperators, useTasks } from "@/hooks/use-fleet-data";
+import { useLookup, useOperators, useSite, useTasks } from "@/hooks/use-fleet-data";
 import { useQueryParam } from "@/hooks/use-query-param";
 import { FATIGUE } from "@/lib/thresholds";
 import { availabilityMeta } from "@/lib/status";
@@ -33,6 +33,7 @@ const bandMatch: Record<FatigueBand, (o: Operator) => boolean> = {
 
 /** Operators — spec §5.3: who is working, who is available, who is at risk. */
 export function OperatorsView() {
+  const site = useSite();
   const { data: operators } = useOperators();
   const { data: tasks } = useTasks();
   const lookup = useLookup();
@@ -70,7 +71,7 @@ export function OperatorsView() {
             <>
               <span>{operators.length} rostered</span>
               <MetaDot />
-              <span>Pit 3 North</span>
+              <span>{site}</span>
             </>
           ) : undefined
         }

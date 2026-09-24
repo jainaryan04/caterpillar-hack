@@ -146,69 +146,90 @@ a replan.
       right before this log was written — re-run before assuming it still is,
       since Analytics work is unfinished).
 
-### In progress / not started
+### Done (session 2 — 2026-09-24): Phase 1 finish, Phases 2–4
 
-- [ ] **`features/analytics/*` rewrite.** This is the one remaining consumer
-      of `lib/mock/analytics.ts` (`analytics-view.tsx`,
-      `analytics-charts.tsx`). Currently still broken (imports a deleted-in-
-      spirit-but-not-in-code mock module; `tsc` will fail here once mock
-      folder is deleted). Plan for the rewrite, not yet implemented:
-      - Drop the day-range picker (7d/14d/30d) and the "Compare" toggle —
-        no real history to compare against at day granularity.
-      - KPIs: pull from `RunSummary` (`n_tasks`, `makespan_min` via
-        `formatDuration`, `verified`, `improvement_vs_greedy_pct`).
-      - Reuse `UtilizationChart`/`WorkloadChart` from
-        `dashboard/dashboard-charts.tsx` rather than duplicating chart code —
-        they already read the right endpoints.
-      - "By task type" breakdown: group `runPortions()` by `task_type`,
-        feed into the existing `BreakdownList` component
-        (`features/analytics/breakdown-list.tsx` — reusable, untouched).
-      - "Top operators"/"Top machines" tables: from `useRunWorkers()` /
-        `useRunMachines()` directly (already real, already fetched
-        elsewhere) instead of the fake `operatorProductivity` array.
-      - Real trend across time = `useRunList()` (multiple published/archived
-        runs) plotted by `created_at` — makespan and utilization per run,
-        not per day. This is the honest replacement for "daily trend."
-      - If any tab's real equivalent doesn't exist (durations-by-task-type
-        distribution has no real per-type breakdown, only per-portion
-        `predicted_duration_min`), either derive it honestly from
-        `runPortions()` grouped by `task_type`, or drop that tab — do not
-        reintroduce a fabricated stand-in.
-- [ ] `config/site.ts`: `CURRENT_USER` and `CURRENT_SHIFT` are still
-      hardcoded fiction (no auth backend, no shift table — `CURRENT_SHIFT`
-      literally says "Day shift 06:00–18:00" at 2am). Plan says: drop both.
-      `SITES` also needs replacing with the real industry list (Phase 2).
-- [ ] Delete `frontend/src/lib/mock/` entirely — **blocked on the Analytics
-      rewrite above**, since it's the last importer.
-- [ ] Phase 2 — site switcher wired to real industries (not started).
-- [ ] Phase 3 — planning workspace: draft tray, `/v1/predict` candidate
-      preview, stage→solve→review→publish flow (not started). Remember:
-      `execution_mode`/`max_parallel` are currently hardcoded to
-      `"PARALLEL"`/`3` in `createTask()` (`lib/api/client.ts`) and never
-      shown to the user — Phase 3 must surface them as real form fields.
-      Also remember the model's `check_schema()` 422s on any task-type/
-      industry string outside `Prediction/models/feature_schema.json` —
-      every dropdown must be constrained to that list, no free text.
-- [ ] Phase 4 — simulation replay (not started). Key implementation notes
-      already settled during planning, restated here so they survive context
-      loss:
-      - Route: `app/(ops)/simulation/page.tsx` → `features/simulation/`.
-      - Clock: `hooks/use-replay-clock.ts`, `requestAnimationFrame`-driven,
-        maps `makespan_min` (real, from `RunSummary`) onto a configurable
-        wall-clock duration (default 15s; offer 5s/15s/30s). Must be
-        instantly seekable/resettable — state at time *t* is a pure function
-        over `runPortions()`'s `start_min`/`end_min`, not accumulated state.
-      - Primary visual: `resource-lanes.tsx` — one row per machine (toggle to
-        per worker), bars positioned from real minute offsets, moving
-        playhead. Deliberately custom SVG/flex, **not** FullCalendar (no
-        resource-timeline view without a Premium license).
-      - Map during replay: reuse `toPlan`/`SiteMap` (`compact` mode already
-        exists), machines drift toward their real zone centroid, and the map
-        **must** carry a visible "Replay" badge — these are schedule-derived
-        positions, never to be confused with the `/v2/machines` live-GPS
-        feed used everywhere else in the app.
-      - Zero writes. Verification step in the plan: confirm via network tab
-        that replay issues no mutating requests.
+- [x] Analytics rewrite and `lib/mock/` deletion were already in commit
+      40d0467; verified `grep -r "lib/mock" src` is empty and tsc/eslint clean.
+- [x] `config/site.ts`: `CURRENT_USER`, `CURRENT_SHIFT`, `SITES` deleted. User
+      menu says "Operations · Not signed in"; alert-store actor is
+      "Operations"; dashboard header shows site + real plan horizon/makespan.
+      Settings: fake profile and per-Cat-model threshold table replaced by the
+      one real read-only set from `lib/thresholds.ts`.
+- [x] **Bug fixed:** `/v1/rosters` returns workers with `skill_set` (array)
+      and `available_from`/`available_until`; the adapter read `skills`/
+      `*_min`, so every operator had empty skills and NaN shift times. Shift is
+      now shown only when a worker's window is < 24 h (most span the 30-day
+      horizon — not a shift).
+- [x] **Bug fixed:** old `createTask` sent only Mining tasks inline, so every
+      task-add re-planned *without the other four industries*. Planning now
+      always sends the full roster + drafts.
+- [x] **Phase 2 — sites = industries.** `lib/catalog.ts` mirrors the model's
+      closed world (5 industries, 22 task types with VOLUME/difficulty from
+      `complexity.py`, required machine type, default mode). `TaskType` /
+      `MachineType` are now the backend strings — the old slug enums (and the
+      invented `grading`/`inspection`/`maintenance`, which would 422) are gone.
+      `useSite()` validates the persisted id (falls back to Mining). Scoping:
+      tasks by industry; machines by the machine types the industry's tasks
+      require; workers by skill overlap; alerts by machine type. Excavator /
+      Wheel Loader legitimately appear under both Mining and Construction.
+      Run-wide numbers (`RunSummary`) stay whole-plan; `useRunMachines` /
+      `useRunPortions` narrow client-side.
+- [x] **Phase 3 — `/planning`.** `stores/plan-draft-store.ts` (persisted tray),
+      `features/planning/*`: schema-constrained form incl. execution mode and
+      max-parallel; stage defaults to the roster's stage for that type; live
+      `/v1/predict` preview (debounced, ~2 s, "effectively tied" within MAE);
+      crew panel; one solve with `publish: false`; diff vs live (headline +
+      per-task added/removed/reassigned/re-timed, timing compared as offset
+      from each run's own horizon); explicit publish dialog listing side
+      effects; discard = `DELETE /v1/runs/{id}`. `/tasks` no longer publishes
+      anything — "Plan tasks" links here.
+      **Known backend behaviour:** `POST /v1/plan` with `persist: true`
+      upserts inline tasks into the roster (`sync_rosters`) even when not
+      published, so a proposed-then-discarded draft task stays on the roster
+      as unscheduled. The tray dedupes by task_id and says so; there is no
+      delete-task endpoint.
+      Measured: a 10 s solver budget = ~38 s wall (two passes + predict +
+      persist); client timeout is 45 s + 3 × budget.
+- [x] **Phase 4 — `/simulation`.** `hooks/use-replay-clock.ts` (rAF, anchor-
+      based, seekable), `features/simulation/replay.ts` (pure state-at-t),
+      `resource-lanes.tsx` (custom flex, machines/workers, click-to-seek),
+      counters, event ticker (portion start/end + recorded safety events at
+      their offset from `horizon_start`), `replay-map.tsx` (last GPS fix →
+      assigned work-zone centroid while running, persistent "Replay" badge).
+      New additive backend read: `GET /v2/zone-assignments`.
+      Verified against the live run: bar offsets = start/end ÷ makespan;
+      state flips exactly at start_min/end_min; peak 13 concurrent portions;
+      no lane overlaps; scrubbing back reproduces identical counters; end
+      utilisation 13.67% = total_busy_min 19238 ÷ (50 × 2814). Replay issues
+      only GETs (no mutation hooks are imported in `features/simulation`).
+
+### Still open
+
+- [ ] In-browser click-through (browser automation was unavailable this
+      session): planning form → preview → run scheduler → review → publish,
+      and replay playback at 5/15/30 s.
+- [ ] Publish was **not** exercised end to end (it would replace the live
+      plan); propose → inspect → discard was, against the real backend.
+
+### Session 3 (2026-09-24): simplified to a quick sandbox — user direction
+
+The user asked for a minimal, fast flow and **no solver/greedy/CP-SAT
+comparison data in the UI**. Changes:
+
+- `/planning` (propose → diff → publish, 40–100 s solves) **removed**, with
+  `plan-draft-store`, `proposePlan`/`publishRun`/`discardRun`/`runById`.
+- `/simulation` is now **Simulate**: pick task type, quantity, weather,
+  shift → `POST /v1/predict` (~2–4 s) ranks pairings → `features/simulation/
+  assign.ts` takes the pairing that finishes earliest given what is already
+  queued (prefers roster-AVAILABLE workers) → plays back on the map in 5 s.
+  Task list shows worker, skill, fatigue, machine, predicted duration,
+  start → finish. **Clear all** empties it. Sandbox lives in
+  `stores/sim-store.ts` (localStorage); the only backend calls are predict
+  POSTs — nothing is written to the database (verified in a headless run).
+- Analytics: "Solver check" tile and "Improvement vs greedy" column removed.
+- Map: `site-scenery.tsx` basemap art (pit terraces, ramp, crusher +
+  conveyor, dump mounds, workshop, fuel tanks, trees, north arrow, scale);
+  operators shown as a hard-hat badge on their assigned machine.
 
 ## Constraints that keep biting — don't relearn these the hard way
 

@@ -30,7 +30,7 @@ import type { ScheduledPortion } from "@/lib/api/client";
 
 const NO_PLAN = {
   title: "No published plan",
-  description: "Publish a schedule and this fills in from the solver's own output.",
+  description: "Once a schedule is published, this fills in from it.",
 } as const;
 
 /**

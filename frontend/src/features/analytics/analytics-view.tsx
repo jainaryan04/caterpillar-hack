@@ -16,7 +16,6 @@ import {
   useRunWorkers,
 } from "@/hooks/use-fleet-data";
 import { formatDate, formatDuration, formatPercent } from "@/lib/format";
-import { taskTypeLabel } from "@/lib/status";
 import { UtilizationChart, WorkloadChart } from "../dashboard/dashboard-charts";
 import { BreakdownList } from "./breakdown-list";
 
@@ -42,7 +41,7 @@ export function AnalyticsView() {
     const counts = new Map<string, number>();
     for (const p of portions) counts.set(p.task_type, (counts.get(p.task_type) ?? 0) + 1);
     return [...counts.entries()]
-      .map(([type, count]) => ({ label: taskTypeLabel[type as keyof typeof taskTypeLabel] ?? type, value: count }))
+      .map(([type, count]) => ({ label: type, value: count }))
       .sort((a, b) => b.value - a.value);
   }, [portions]);
 
@@ -71,7 +70,7 @@ export function AnalyticsView() {
         <EmptyState
           variant="clear"
           title="No published plan yet"
-          description="Publish a schedule from Tasks and every chart here fills in from the solver's own output."
+          description="Once a schedule is published, every chart here fills in from it."
         />
       </PageContainer>
     );
@@ -88,7 +87,7 @@ export function AnalyticsView() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 lg:gap-4">
         <KpiCard label="Tasks in plan" value={run.n_tasks} denominator={run.n_portions !== run.n_tasks ? run.n_portions : undefined} info="Tasks scheduled; denominator shown only when tasks split into multiple portions." />
         <KpiCard label="Makespan" value={formatDuration(run.makespan_min)} info="Time from plan start to the last task finishing." />
         <KpiCard
@@ -96,12 +95,6 @@ export function AnalyticsView() {
           value={`${run.workers_used}+${run.machines_used}`}
           denominator={run.workers_total + run.machines_total}
           info="Workers + machines engaged by this plan, out of the full roster."
-        />
-        <KpiCard
-          label="Solver check"
-          value={run.verified ? "Verified" : "Unverified"}
-          tone={run.verified ? "success" : "danger"}
-          info="Every constraint independently re-checked against the roster after solving."
         />
       </div>
 
@@ -190,7 +183,7 @@ export function AnalyticsView() {
         </div>
 
         <div className="min-w-0 xl:col-span-12">
-          <SectionCard title="Plan history" subtitle="Every run the solver has produced" bodyClassName="p-0">
+          <SectionCard title="Plan history" subtitle="Every plan produced so far" bodyClassName="p-0">
             {runHistory && runHistory.length ? (
               <div className="overflow-x-auto">
                 <table className="w-full text-small">
@@ -200,7 +193,6 @@ export function AnalyticsView() {
                       <th className="eyebrow px-4 py-2 text-left">Published</th>
                       <th className="eyebrow px-4 py-2 text-right">Makespan</th>
                       <th className="eyebrow px-4 py-2 text-right">Tasks</th>
-                      <th className="eyebrow px-4 py-2 text-right">Improvement vs. greedy</th>
                       <th className="eyebrow px-4 py-2 text-right">Status</th>
                     </tr>
                   </thead>
@@ -213,9 +205,6 @@ export function AnalyticsView() {
                         <td className="px-4 py-2 text-muted-foreground">{formatDate(r.created_at)}</td>
                         <td className="px-4 py-2 text-right font-mono tabular-nums">{formatDuration(r.makespan_min)}</td>
                         <td className="px-4 py-2 text-right font-mono tabular-nums">{r.n_tasks}</td>
-                        <td className="px-4 py-2 text-right font-mono tabular-nums">
-                          {formatPercent(r.improvement_vs_greedy_pct)}
-                        </td>
                         <td className="px-4 py-2 text-right">
                           <StatusBadge
                             tone={r.status === "PUBLISHED" ? "success" : r.status === "ARCHIVED" ? "neutral" : "info"}

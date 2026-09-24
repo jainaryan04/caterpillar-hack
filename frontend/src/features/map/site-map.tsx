@@ -7,6 +7,7 @@ import { SITE_BOUNDS, SITE_PLAN } from "@/lib/site-plan";
 import { availabilityMeta, machineStatusMeta, type Tone } from "@/lib/status";
 import type { LatLng, Machine, Operator, SafetyAlert, Zone } from "@/lib/types";
 import { MachineIcon } from "@/components/shared/machine-icon";
+import { SiteScenery } from "./site-scenery";
 
 /**
  * Google Maps placeholder — spec §13.
@@ -80,21 +81,20 @@ function activate(fn: () => void) {
   };
 }
 
-/* Schematic haul roads between work areas */
-const ROADS = [
-  "M 300 250 L 380 305 L 740 350 L 840 350",
-  "M 330 430 L 380 305",
-  "M 560 240 L 560 300",
-  "M 845 430 L 850 470",
-];
-
-/* Pit bench contours */
-const CONTOURS = [
-  { cx: 400, cy: 170, rx: 330, ry: 150 },
-  { cx: 400, cy: 170, rx: 260, ry: 112 },
-  { cx: 400, cy: 170, rx: 190, ry: 76 },
-  { cx: 400, cy: 170, rx: 120, ry: 44 },
-];
+/**
+ * Hard-hat glyph centred on the origin, sized to a ~12 px badge. Workers have
+ * no GPS of their own, so they appear where the data puts them: on the
+ * machine they are assigned to (badge), or on foot only if a position exists.
+ */
+function HardHat({ scale = 1 }: { scale?: number }) {
+  return (
+    <g transform={`scale(${scale})`}>
+      <path d="M -4.2 1.2 A 4.2 4.2 0 0 1 4.2 1.2 Z" className="fill-foreground" />
+      <path d="M -5.6 1.2 L 5.6 1.2" className="stroke-foreground" strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M 0 -3 L 0 1.2" className="stroke-overlay" strokeWidth="0.9" />
+    </g>
+  );
+}
 
 export function SiteMap({
   machines,
@@ -130,14 +130,8 @@ export function SiteMap({
         </pattern>
       </defs>
 
-      {/* Base: land, pit contours, haul roads */}
-      <rect width={SITE_PLAN.width} height={SITE_PLAN.height} className="fill-(--map-land)" />
-      {CONTOURS.map((c, i) => (
-        <ellipse key={i} {...c} fill="none" className="stroke-(--map-contour)" strokeWidth="1.5" />
-      ))}
-      {ROADS.map((d, i) => (
-        <path key={i} d={d} fill="none" className="stroke-(--map-road)" strokeWidth="14" strokeLinecap="round" strokeLinejoin="round" />
-      ))}
+      {/* Base: terrain, pit, haul roads, fixed plant */}
+      <SiteScenery compact={compact} />
 
       {/* Work sites */}
       {layers.work
@@ -159,7 +153,8 @@ export function SiteMap({
                     )}
                     strokeWidth="1"
                   />
-                  {!compact ? (
+                  {/* The perimeter is the map's own edge; its label would only collide. */}
+                  {!compact && z.id !== "Z-PERIMETER" ? (
                     <text x={c.x + 10} y={c.y + 24} className="fill-muted-foreground font-sans text-[13px] font-medium">
                       {z.name}
                     </text>
@@ -216,13 +211,21 @@ export function SiteMap({
                 className={cn(interactive && "cursor-pointer outline-none [&:focus-visible>circle]:stroke-brand")}
               >
                 <title>{label}</title>
-                {isSelected(o.id) ? <circle r="14" fill="none" className="stroke-foreground" strokeDasharray="3 3" /> : null}
-                <circle r={compact ? 5 : 9} className={cn("fill-overlay", toneStroke[tone])} strokeWidth="2" />
-                {!compact ? (
-                  <text y="3" textAnchor="middle" className="fill-foreground-secondary font-sans text-[8px] font-semibold">
-                    {o.initials}
-                  </text>
-                ) : null}
+                {isSelected(o.id) ? <circle r="16" fill="none" className="stroke-foreground" strokeDasharray="3 3" /> : null}
+                <circle r={compact ? 6 : 12} className={cn("fill-overlay", toneStroke[tone])} strokeWidth="2" />
+                {compact ? null : (
+                  <>
+                    {/* head + hard hat + shoulders */}
+                    <circle cy="-0.5" r="2.6" className="fill-foreground-secondary" />
+                    <g transform="translate(0 -3.2)">
+                      <HardHat scale={0.8} />
+                    </g>
+                    <path d="M -5.5 8 A 5.5 5 0 0 1 5.5 8" className="fill-foreground-secondary" />
+                    <text y="24" textAnchor="middle" className="fill-foreground-secondary font-mono text-[9px]">
+                      {o.id}
+                    </text>
+                  </>
+                )}
               </g>
             );
           })
@@ -251,7 +254,10 @@ export function SiteMap({
                   interactive && "cursor-pointer outline-none [&:focus-visible>rect]:stroke-brand",
                 )}
               >
-                <title>{label}</title>
+                <title>{m.operatorId ? `${label}, operator ${m.operatorId}` : label}</title>
+                {m.status === "operating" && !compact ? (
+                  <circle r={half + 7} className="fill-success" fillOpacity="0.12" />
+                ) : null}
                 {m.velocityKph > 0 ? (
                   <path
                     d={`M 0 ${-half - 9} L 5 ${-half - 3} L -5 ${-half - 3} Z`}
@@ -289,12 +295,18 @@ export function SiteMap({
                   height={size - 8}
                   className="text-foreground-secondary"
                 />
-                {m.operatorId && !compact ? (
-                  <circle cx={half - 1} cy={-half + 1} r="4" className="fill-foreground-secondary stroke-overlay" strokeWidth="1.5" />
+                {m.operatorId ? (
+                  <g transform={`translate(${half - 1} ${-half + 1})`}>
+                    <circle r={compact ? 4.5 : 7.5} className="fill-overlay stroke-foreground-secondary" strokeWidth="1.25" />
+                    <g transform="translate(0 0.6)">
+                      <HardHat scale={compact ? 0.55 : 0.95} />
+                    </g>
+                  </g>
                 ) : null}
                 {!compact ? (
                   <text y={half + 13} textAnchor="middle" className="fill-foreground-secondary font-mono text-[10px]">
                     {m.id.replace("MCH-", "")}
+                    {m.operatorId ? <tspan className="fill-muted-foreground"> · {m.operatorId}</tspan> : null}
                   </text>
                 ) : null}
               </g>

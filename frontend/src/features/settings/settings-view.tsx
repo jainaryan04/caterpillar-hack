@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useTheme } from "next-themes";
 import { Lock, Monitor, Moon, Sun } from "lucide-react";
 import { toast } from "sonner";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -13,7 +12,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { PageContainer } from "@/components/shared/page-container";
 import { SectionCard } from "@/components/shared/section-card";
 import { SegmentedControl } from "@/components/shared/segmented-control";
-import { CURRENT_USER } from "@/config/site";
+import { useSite } from "@/hooks/use-fleet-data";
 import { ENGINE_TEMP } from "@/lib/thresholds";
 import { FATIGUE } from "@/lib/thresholds";
 
@@ -23,8 +22,6 @@ const TIERS = [
   { key: "p3", label: "Info", hint: "Task completed, assigned to you, handover notes" },
 ] as const;
 const CHANNELS = ["In-app", "Sound", "Email"] as const;
-
-const MODELS = ["Cat 336", "Cat 390F", "Cat D8T", "Cat 793F", "Cat 988K", "Cat 16M3"];
 
 function Row({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -54,7 +51,7 @@ export function SettingsView() {
     "p3-Sound": false,
     "p3-Email": false,
   });
-  const canEditThresholds = CURRENT_USER.role !== "Site Supervisor";
+  const site = useSite();
 
   return (
     <PageContainer className="flex max-w-5xl flex-col gap-4">
@@ -65,30 +62,20 @@ export function SettingsView() {
         actions={<Button onClick={() => toast.success("Preferences saved")}>Save changes</Button>}
       />
 
-      <SectionCard title="Profile">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-          <Avatar className="size-14">
-            <AvatarFallback className="bg-raised text-h3">{CURRENT_USER.initials}</AvatarFallback>
-          </Avatar>
-          <div className="grid flex-1 gap-4 sm:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="name">Name</Label>
-              <Input id="name" defaultValue={CURRENT_USER.name} />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="role">Role</Label>
-              <Input id="role" value={CURRENT_USER.role} readOnly disabled />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="phone">Radio / phone</Label>
-              <Input id="phone" defaultValue="+1 775 555 0100" />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="site">Home site</Label>
-              <Input id="site" value="Pit 3 North" readOnly disabled />
-            </div>
+      <SectionCard title="Console">
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="signed-in">Signed in as</Label>
+            <Input id="signed-in" value="No sign-in configured" readOnly disabled />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <Label htmlFor="site">Current site</Label>
+            <Input id="site" value={site} readOnly disabled />
           </div>
         </div>
+        <p className="mt-3 text-caption text-muted-foreground">
+          There is no auth backend, so there is no profile to edit. Switch sites from the sidebar.
+        </p>
       </SectionCard>
 
       <SectionCard title="Display" bodyClassName="divide-y">
@@ -171,46 +158,33 @@ export function SettingsView() {
 
       <SectionCard
         title="Alert thresholds"
-        subtitle="Per machine model. Placeholder values; confirm against equipment specs."
+        subtitle="Applied to every machine and operator on every site"
         action={
-          !canEditThresholds ? (
-            <span className="flex items-center gap-1.5 text-caption text-muted-foreground">
-              <Lock className="size-3.5" /> Operations Manager only
-            </span>
-          ) : undefined
+          <span className="flex items-center gap-1.5 text-caption text-muted-foreground">
+            <Lock className="size-3.5" /> Read-only
+          </span>
         }
         bodyClassName="p-0"
       >
         <div className="overflow-x-auto">
           <table className="w-full text-small">
-            <thead>
-              <tr className="border-b">
-                <th className="eyebrow px-4 py-2 text-left">Model</th>
-                <th className="eyebrow px-4 py-2 text-right">Engine elevated °C</th>
-                <th className="eyebrow px-4 py-2 text-right">Engine critical °C</th>
-                <th className="eyebrow px-4 py-2 text-right">Fatigue high</th>
-              </tr>
-            </thead>
             <tbody className="divide-y">
-              {MODELS.map((m) => (
-                <tr key={m}>
-                  <td className="px-4 py-2 font-medium">{m}</td>
-                  {[ENGINE_TEMP.elevated, ENGINE_TEMP.critical, FATIGUE.high].map((v, i) => (
-                    <td key={i} className="px-4 py-2 text-right">
-                      <Input
-                        type="number"
-                        defaultValue={v}
-                        disabled={!canEditThresholds}
-                        aria-label={`${m} threshold ${i + 1}`}
-                        className="ml-auto h-8 w-20 text-right font-mono tabular-nums"
-                      />
-                    </td>
-                  ))}
+              {[
+                ["Engine temperature — elevated", `${ENGINE_TEMP.elevated} °C`],
+                ["Engine temperature — critical", `${ENGINE_TEMP.critical} °C`],
+                ["Operator fatigue — high", `${FATIGUE.high} / 100`],
+              ].map(([label, value]) => (
+                <tr key={label}>
+                  <td className="px-4 py-2 font-medium">{label}</td>
+                  <td className="px-4 py-2 text-right font-mono tabular-nums">{value}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
+        <p className="border-t px-4 py-2.5 text-caption text-muted-foreground">
+          The backend has no per-model threshold table; these are the single set the UI applies.
+        </p>
       </SectionCard>
     </PageContainer>
   );

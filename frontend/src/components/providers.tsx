@@ -5,6 +5,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useSimStore } from "@/stores/sim-store";
 import { useUiStore } from "@/stores/ui-store";
 
 export function Providers({ children }: { children: ReactNode }) {
@@ -26,6 +27,7 @@ export function Providers({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void useUiStore.persist.rehydrate();
+    void useSimStore.persist.rehydrate();
   }, []);
 
   return (

@@ -1,14 +1,15 @@
 /** Domain model shared by the UI. Mirrors docs/DESIGN_SPEC.md §1.1. */
 
+import type { Industry, TaskType } from "@/lib/catalog";
+
+export type { Industry, TaskType };
+
 export type LatLng = { lat: number; lng: number };
 
-export type MachineType =
-  | "excavator"
-  | "dozer"
-  | "haul-truck"
-  | "wheel-loader"
-  | "motor-grader"
-  | "drill-rig";
+/** The backend's own machine_type string, e.g. "Haul Truck" — the roster
+ * spans 19 of them across five industries, so there is no local enum to
+ * drift out of sync with it. */
+export type MachineType = string;
 
 export type MachineStatus = "operating" | "idle" | "fault" | "maintenance" | "offline";
 
@@ -66,16 +67,6 @@ export interface Operator {
   position: LatLng | null;
 }
 
-export type TaskType =
-  | "excavation"
-  | "hauling"
-  | "loading"
-  | "grading"
-  | "dozing"
-  | "drilling"
-  | "inspection"
-  | "maintenance";
-
 export type TaskComplexity = "low" | "medium" | "high";
 
 export type TaskStatus =
@@ -86,7 +77,11 @@ export type TaskStatus =
   | "cancelled";
 
 export interface Task {
+  /** Assignment id once scheduled; the roster task_id while unscheduled. */
   id: string;
+  /** The roster task this row belongs to (several portions can share one). */
+  taskId: string;
+  industry: Industry;
   title: string;
   type: TaskType;
   complexity: TaskComplexity;

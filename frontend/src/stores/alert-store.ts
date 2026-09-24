@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import type { AlertStatus, TimelineEntry } from "@/lib/types";
-import { CURRENT_USER } from "@/config/site";
 
 interface AlertOverride {
   status: AlertStatus;
@@ -28,7 +27,8 @@ export const useAlertStore = create<AlertState>()((set) => ({
           status,
           timeline: [
             ...(s.overrides[id]?.timeline ?? []),
-            { at: new Date().toISOString(), actor: CURRENT_USER.name, action },
+            // No sign-in exists, so the actor is the role, not an invented name.
+            { at: new Date().toISOString(), actor: "Operations", action },
           ],
         },
       },

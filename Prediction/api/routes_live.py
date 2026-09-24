@@ -37,6 +37,13 @@ def zones():
     return {"zones": store.list_zones()}
 
 
+@router.get("/zone-assignments",
+            summary="Which work zones each machine is geofenced to (a machine can hold several)")
+def zone_assignments():
+    _need_db()
+    return {"assignments": store.list_zone_assignments()}
+
+
 @router.get("/alerts", summary="Safety events: proximity, tilt/rollover/fall, geofence, restricted zone")
 def alerts(status: str | None = Query(None, pattern="^(OPEN|ACKNOWLEDGED|RESOLVED)$"),
            limit: int = Query(300, ge=1, le=1000)):

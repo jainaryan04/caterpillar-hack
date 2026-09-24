@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ComplexityPips } from "@/components/shared/complexity-pips";
 import { EmptyState } from "@/components/shared/empty-state";
 import { formatDuration } from "@/lib/format";
-import { taskTypeIcon, taskTypeLabel } from "@/lib/status";
+import { taskTypeIcon } from "@/lib/status";
 import type { Task } from "@/lib/types";
 
 interface UnscheduledTrayProps {
@@ -29,14 +29,14 @@ export function UnscheduledTray({ tasks, onOpen, onSchedule }: UnscheduledTrayPr
       ) : (
         <ul className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto p-2">
           {tasks.map((t) => {
-            const Icon = taskTypeIcon[t.type];
+            const Icon = taskTypeIcon(t.type);
             return (
               <li key={t.id} className="rounded-md border bg-raised/40 hover:border-border-strong">
                 <button type="button" onClick={() => onOpen(t.id)} className="flex w-full flex-col gap-1 p-2.5 text-left">
                   <span className="flex items-center gap-1.5 text-caption text-muted-foreground">
                     <Icon className="size-3.5" aria-hidden />
                     <span className="font-mono">{t.id}</span>
-                    <span>· {taskTypeLabel[t.type]}</span>
+                    <span>· {t.type}</span>
                     <ComplexityPips complexity={t.complexity} className="ml-auto" />
                   </span>
                   <span className="text-small font-medium">{t.title}</span>

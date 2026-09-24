@@ -56,9 +56,22 @@
   --paper-muted: #d9d8d2;
 
   /* Map placeholder */
-  --map-land: #e7e6e1;
-  --map-road: #d2d1cb;
-  --map-contour: #d9d8d2;
+  --map-land: #e8e3d7;
+  --map-road: #d3ccbc;
+  --map-road-line: #f6f3ec;
+  --map-contour: #d6ccb8;
+  --map-pit-1: #ddd3bf;
+  --map-pit-2: #d3c7ae;
+  --map-pit-3: #c8ba9e;
+  --map-pit-4: #bcad8f;
+  --map-stockpile: #cbbb99;
+  --map-stockpile-edge: #ae9d78;
+  --map-building: #dcdad3;
+  --map-roof: #b9b6ac;
+  --map-tank: #cfd3d6;
+  --map-tree: #a3bb91;
+  --map-tree-dark: #86a172;
+  --map-ink: #8c8474;
 }
 
 .dark {
@@ -95,9 +108,22 @@
   --chart-6: #b0b0b0;
   --chart-grid: #222222;
 
-  --map-land: #141414;
-  --map-road: #262626;
-  --map-contour: #1b1b1b;
+  --map-land: #141311;
+  --map-road: #302c25;
+  --map-road-line: #4d473b;
+  --map-contour: #2e2a23;
+  --map-pit-1: #1c1a16;
+  --map-pit-2: #23201a;
+  --map-pit-3: #2a261f;
+  --map-pit-4: #322d24;
+  --map-stockpile: #3b3428;
+  --map-stockpile-edge: #5a4f3c;
+  --map-building: #2b2b2b;
+  --map-roof: #454545;
+  --map-tank: #30343a;
+  --map-tree: #243320;
+  --map-tree-dark: #30432a;
+  --map-ink: #736b5c;
 }
 
 /* shadcn/ui semantic aliases, mapped onto the CAT tokens above */

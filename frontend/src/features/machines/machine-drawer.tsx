@@ -17,7 +17,6 @@ import { ENGINE_TEMP } from "@/lib/thresholds";
 import {
   engineTempTone,
   machineStatusMeta,
-  machineTypeLabel,
   severityMeta,
   taskStatusMeta,
 } from "@/lib/status";
@@ -66,7 +65,7 @@ export function MachineDrawer({ machine: m, alerts, zones, lookup, onClose }: Ma
           <>
             <StatusBadge meta={machineStatusMeta[m.status]} />
             <span className="text-caption text-muted-foreground">
-              {machineTypeLabel[m.type]}
+              {m.type}
               {zone ? ` · ${zone.name}` : ""} · updated <RelativeTime iso={m.lastSeen} />
             </span>
           </>

@@ -2,10 +2,12 @@
 
 import { useMemo } from "react";
 import { useMutation, useQuery, useQueryClient, type UseQueryResult } from "@tanstack/react-query";
-import { api, health, mutations, queryKeys, type CreateTaskInput } from "@/lib/api/client";
+import { api, health, mutations, queryKeys } from "@/lib/api/client";
+import { DEFAULT_INDUSTRY, isIndustry, machineTypesFor, type Industry } from "@/lib/catalog";
 import type { Machine, Operator, SafetyAlert, Task, Zone } from "@/lib/types";
 import { useAlertStore } from "@/stores/alert-store";
 import { useNotificationStore } from "@/stores/notification-store";
+import { useUiStore } from "@/stores/ui-store";
 import { useHydrated } from "./use-hydrated";
 
 /**
@@ -31,19 +33,61 @@ const LIVE_REFETCH_MS = 5000;
 // fixing. refetchInterval keeps trying every 5s regardless.
 const LIVE_QUERY_OPTS = { refetchInterval: LIVE_REFETCH_MS, retry: 0 } as const;
 
-export const useMachines = () =>
-  useGatedQuery(useQuery({ queryKey: queryKeys.machines, queryFn: api.machines, ...LIVE_QUERY_OPTS }));
-export const useOperators = () =>
-  useGatedQuery(useQuery({ queryKey: queryKeys.operators, queryFn: api.operators, ...LIVE_QUERY_OPTS }));
-export const useTasks = () =>
-  useGatedQuery(useQuery({ queryKey: queryKeys.tasks, queryFn: api.tasks, ...LIVE_QUERY_OPTS }));
+/** The selected site (industry). The persisted value is validated here, so a
+ * stale id from an older build falls back to the default instead of
+ * filtering everything to nothing. */
+export function useSite(): Industry {
+  const siteId = useUiStore((s) => s.siteId);
+  return isIndustry(siteId) ? siteId : DEFAULT_INDUSTRY;
+}
+
+export const useSites = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.sites, queryFn: api.sites, retry: 1 }));
+export const useRoster = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.roster, queryFn: api.roster, ...LIVE_QUERY_OPTS }));
+
+export function useMachines() {
+  const site = useSite();
+  return useGatedQuery(
+    useQuery({ queryKey: [...queryKeys.machines, site], queryFn: () => api.machines(site), ...LIVE_QUERY_OPTS }),
+  );
+}
+export function useOperators() {
+  const site = useSite();
+  return useGatedQuery(
+    useQuery({ queryKey: [...queryKeys.operators, site], queryFn: () => api.operators(site), ...LIVE_QUERY_OPTS }),
+  );
+}
+export function useTasks() {
+  const site = useSite();
+  return useGatedQuery(
+    useQuery({ queryKey: [...queryKeys.tasks, site], queryFn: () => api.tasks(site), ...LIVE_QUERY_OPTS }),
+  );
+}
 export const useZones = () =>
   useGatedQuery(useQuery({ queryKey: queryKeys.zones, queryFn: api.zones, retry: 1 }));
+export const useZoneAssignments = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.zoneAssignments, queryFn: api.zoneAssignments, retry: 1 }));
 
 // Run analytics. The published run only changes when someone publishes a new
 // plan, so these don't need the 5s live cadence -- but they must still refetch
 // after a publish, which the mutations below invalidate explicitly.
+//
+// The run itself covers every industry (one solve, one makespan). Per-resource
+// reads are narrowed to the selected site client-side, from the same cached
+// response; run-wide headline numbers (useRunSummary) are left whole and
+// labelled as such where shown.
 const RUN_QUERY_OPTS = { retry: 1 } as const;
+
+function useScoped<T>(query: UseQueryResult<T[]>, keep: (row: T, site: Industry) => boolean): UseQueryResult<T[]> {
+  const site = useSite();
+  const data = useMemo(() => query.data?.filter((r) => keep(r, site)), [query.data, site, keep]);
+  return { ...query, data } as UseQueryResult<T[]>;
+}
+
+const machineInSite = (m: { machine_type: string }, site: Industry) => machineTypesFor(site).has(m.machine_type);
+const portionInSite = (p: { industry: string }, site: Industry) => p.industry === site;
+const everything = () => true;
 
 export const useRunSummary = () =>
   useGatedQuery(useQuery({ queryKey: queryKeys.runSummary, queryFn: api.runSummary, ...RUN_QUERY_OPTS }));
@@ -55,14 +99,28 @@ export const useRunUtilization = () =>
   );
 export const useRunWorkers = () =>
   useGatedQuery(useQuery({ queryKey: queryKeys.runWorkers, queryFn: api.runWorkers, ...RUN_QUERY_OPTS }));
+/** Machines in the published run, narrowed to the selected site's equipment. */
 export const useRunMachines = () =>
-  useGatedQuery(useQuery({ queryKey: queryKeys.runMachines, queryFn: api.runMachines, ...RUN_QUERY_OPTS }));
-export const useRunPortions = () =>
-  useGatedQuery(useQuery({ queryKey: queryKeys.runPortions, queryFn: api.runPortions, ...RUN_QUERY_OPTS }));
+  useScoped(
+    useGatedQuery(useQuery({ queryKey: queryKeys.runMachines, queryFn: api.runMachines, ...RUN_QUERY_OPTS })),
+    machineInSite,
+  );
+/** Portions of the published run. `scope: "site"` (default) keeps only the
+ * selected industry's; "all" is the whole solve, e.g. for the replay. */
+export function useRunPortions(scope: "site" | "all" = "site") {
+  return useScoped(
+    useGatedQuery(useQuery({ queryKey: queryKeys.runPortions, queryFn: api.runPortions, ...RUN_QUERY_OPTS })),
+    scope === "site" ? portionInSite : everything,
+  );
+}
 export const useWorkerState = () =>
   useGatedQuery(useQuery({ queryKey: queryKeys.workerState, queryFn: api.workerState, ...RUN_QUERY_OPTS }));
 export const useMachineState = () =>
   useGatedQuery(useQuery({ queryKey: queryKeys.machineState, queryFn: api.machineState, ...RUN_QUERY_OPTS }));
+
+/** Last GPS fix of every machine, fetched once — replay input, not a live feed. */
+export const useLiveMachinesSnapshot = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.liveMachines, queryFn: api.liveMachines, retry: 1 }));
 
 export const useApiHealth = () =>
   useQuery({ queryKey: queryKeys.health, queryFn: health, refetchInterval: LIVE_REFETCH_MS, retry: false });
@@ -80,7 +138,10 @@ export function useConnectionState(): "live" | "reconnecting" | "offline" {
 /** Alerts with local UI state (the "responding"/"escalated" stages the
  * backend has no field for) layered on top of the real ack/resolve status. */
 export function useAlerts() {
-  const query = useGatedQuery(useQuery({ queryKey: queryKeys.alerts, queryFn: api.alerts, ...LIVE_QUERY_OPTS }));
+  const site = useSite();
+  const query = useGatedQuery(
+    useQuery({ queryKey: [...queryKeys.alerts, site], queryFn: () => api.alerts(site), ...LIVE_QUERY_OPTS }),
+  );
   const overrides = useAlertStore((s) => s.overrides);
   const data = useMemo(
     () =>
@@ -97,8 +158,13 @@ export function useAlerts() {
 }
 
 export function useNotifications() {
+  const site = useSite();
   const query = useGatedQuery(
-    useQuery({ queryKey: queryKeys.notifications, queryFn: api.notifications, ...LIVE_QUERY_OPTS }),
+    useQuery({
+      queryKey: [...queryKeys.notifications, site],
+      queryFn: () => api.notifications(site),
+      ...LIVE_QUERY_OPTS,
+    }),
   );
   const readIds = useNotificationStore((s) => s.readIds);
   const data = useMemo(
@@ -146,7 +212,7 @@ export function useLookup(): EntityLookup {
 // Every one of these ends by invalidating the queries it affects, rather than
 // hand-rolling an optimistic cache update -- the next 5s poll (or this
 // explicit refetch) always reflects what the database actually did, which
-// matters most for createTask/replan since the solver's own numbers can
+// matters most for task completion since the backend's own numbers can
 // differ from any guess the client could make.
 
 /** Anything that changes the schedule changes the run behind every chart, so
@@ -158,21 +224,9 @@ function useScheduleInvalidator() {
     qc.invalidateQueries({ queryKey: queryKeys.tasks });
     qc.invalidateQueries({ queryKey: queryKeys.machines });
     qc.invalidateQueries({ queryKey: queryKeys.operators });
+    qc.invalidateQueries({ queryKey: queryKeys.roster });
     qc.invalidateQueries({ queryKey: ["run"] });
   };
-}
-
-export function useCreateTask() {
-  const invalidate = useScheduleInvalidator();
-  return useMutation({
-    mutationFn: (input: CreateTaskInput) => mutations.createTask(input),
-    onSuccess: invalidate,
-  });
-}
-
-export function useReplan() {
-  const invalidate = useScheduleInvalidator();
-  return useMutation({ mutationFn: () => mutations.replan(), onSuccess: invalidate });
 }
 
 export function useCompleteTask() {

@@ -1,11 +1,13 @@
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
-import { SITES } from "@/config/site";
+import { DEFAULT_INDUSTRY } from "@/lib/catalog";
 
 interface UiState {
   sidebarCollapsed: boolean;
   mobileNavOpen: boolean;
   commandOpen: boolean;
+  /** Industry name. Persisted, so it may hold a stale value from an older
+   * build — read it through useSite(), which validates it. */
   siteId: string;
   toggleSidebar: () => void;
   setMobileNavOpen: (open: boolean) => void;
@@ -23,7 +25,7 @@ export const useUiStore = create<UiState>()(
       sidebarCollapsed: false,
       mobileNavOpen: false,
       commandOpen: false,
-      siteId: SITES[0].id,
+      siteId: DEFAULT_INDUSTRY,
       toggleSidebar: () => set((s) => ({ sidebarCollapsed: !s.sidebarCollapsed })),
       setMobileNavOpen: (mobileNavOpen) => set({ mobileNavOpen }),
       setCommandOpen: (commandOpen) => set({ commandOpen }),

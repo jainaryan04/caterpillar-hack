@@ -1,12 +1,13 @@
 import type { SVGProps } from "react";
-import type { MachineType } from "@/lib/types";
 
 /**
  * Machine silhouettes (Lucide has none) — spec §7.1. Drawn on a 24×24 grid
  * with Lucide's 1.5px stroke so they sit naturally next to Lucide icons.
  * Also used nested inside the map SVG.
  */
-const paths: Record<MachineType, React.ReactNode> = {
+type Silhouette = "excavator" | "dozer" | "haul-truck" | "wheel-loader" | "motor-grader" | "drill-rig" | "vehicle" | "plant";
+
+const paths: Record<Silhouette, React.ReactNode> = {
   excavator: (
     <>
       <path d="M3 17h11a2 2 0 0 1 0 4H3a2 2 0 0 1 0-4z" />
@@ -62,10 +63,46 @@ const paths: Record<MachineType, React.ReactNode> = {
       <circle cx="20" cy="21" r="1.4" />
     </>
   ),
+  // Road/rail/water service vehicles with no dedicated silhouette.
+  vehicle: (
+    <>
+      <path d="M2 16V9h11v7" />
+      <path d="M13 11h4.5l3.5 3.5V16h-8" />
+      <circle cx="6" cy="17.5" r="2" />
+      <circle cx="17" cy="17.5" r="2" />
+    </>
+  ),
+  // Skid-mounted plant: pumps, compressors, generators, test units.
+  plant: (
+    <>
+      <rect x="3" y="7" width="18" height="10" rx="1.5" />
+      <path d="M7 11h4M7 13.5h4" />
+      <circle cx="16" cy="12" r="2.5" />
+      <path d="M4 20h16" />
+    </>
+  ),
+};
+
+/** Backend machine_type -> silhouette. Anything unlisted draws as a generic vehicle. */
+const SILHOUETTE: Record<string, Silhouette> = {
+  Excavator: "excavator",
+  Bulldozer: "dozer",
+  "Haul Truck": "haul-truck",
+  "Wheel Loader": "wheel-loader",
+  "Motor Grader": "motor-grader",
+  "Rotary Drill Rig": "drill-rig",
+  "Drilling Rig": "drill-rig",
+  "Well Service Rig": "drill-rig",
+  "Mobile Crane": "drill-rig",
+  "Pipeline Pump": "plant",
+  "Gas Compressor": "plant",
+  "Generator Test Unit": "plant",
+  "Emergency Generator": "plant",
 };
 
 interface MachineIconProps extends SVGProps<SVGSVGElement> {
-  type: MachineType;
+  /** Backend machine_type, e.g. "Haul Truck". */
+  type: string;
 }
 
 export function MachineIcon({ type, ...props }: MachineIconProps) {
@@ -82,7 +119,7 @@ export function MachineIcon({ type, ...props }: MachineIconProps) {
       height={16}
       {...props}
     >
-      {paths[type]}
+      {paths[SILHOUETTE[type] ?? "vehicle"]}
     </svg>
   );
 }

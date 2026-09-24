@@ -5,6 +5,7 @@ import { ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SectionCard } from "@/components/shared/section-card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useSite } from "@/hooks/use-fleet-data";
 import { SiteMap } from "@/features/map/site-map";
 import { MapLegend } from "@/features/map/map-legend";
 import type { Machine, Operator, SafetyAlert, Zone } from "@/lib/types";
@@ -18,11 +19,12 @@ interface FleetOverviewProps {
 
 /** Mini map — spec §5.1. No controls; click through to the Live Map. */
 export function FleetOverview({ machines, operators, zones, alerts }: FleetOverviewProps) {
+  const site = useSite();
   const ready = machines && operators && zones && alerts;
   return (
     <SectionCard
       title="Fleet overview"
-      subtitle="Pit 3 North · schematic"
+      subtitle={`${site} · schematic`}
       action={
         <Button asChild variant="ghost" size="sm">
           <Link href="/map">

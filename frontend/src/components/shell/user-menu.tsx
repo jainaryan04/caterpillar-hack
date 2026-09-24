@@ -2,8 +2,7 @@
 
 import Link from "next/link";
 import { useTheme } from "next-themes";
-import { LogOut, Monitor, Moon, Settings, Sun, User } from "lucide-react";
-import { toast } from "sonner";
+import { Monitor, Moon, Settings, Sun, User } from "lucide-react";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
   DropdownMenu,
@@ -18,36 +17,36 @@ import {
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { CURRENT_USER } from "@/config/site";
+import { useSite } from "@/hooks/use-fleet-data";
 
+/** There is no auth backend, so this menu names no one — it is the console's
+ * own settings menu, not an account. */
 export function UserMenu() {
   const { theme, setTheme } = useTheme();
+  const site = useSite();
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         className="flex items-center gap-2 rounded-md p-1 hover:bg-raised"
-        aria-label={`Account: ${CURRENT_USER.name}`}
+        aria-label="Console menu"
       >
         <Avatar className="size-8">
-          <AvatarFallback className="bg-raised text-caption font-semibold">{CURRENT_USER.initials}</AvatarFallback>
+          <AvatarFallback className="bg-raised">
+            <User className="size-4 text-muted-foreground" aria-hidden />
+          </AvatarFallback>
         </Avatar>
         <span className="hidden flex-col text-left leading-tight xl:flex">
-          <span className="text-small font-medium">{CURRENT_USER.name}</span>
-          <span className="text-caption text-muted-foreground">{CURRENT_USER.role}</span>
+          <span className="text-small font-medium">Operations</span>
+          <span className="text-caption text-muted-foreground">Not signed in</span>
         </span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-60">
         <DropdownMenuLabel className="flex flex-col">
-          <span className="text-small font-medium">{CURRENT_USER.name}</span>
-          <span className="text-caption font-normal text-muted-foreground">{CURRENT_USER.role} · Pit 3 North</span>
+          <span className="text-small font-medium">Operations console</span>
+          <span className="text-caption font-normal text-muted-foreground">No sign-in configured · {site}</span>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem asChild>
-          <Link href="/settings">
-            <User /> Profile
-          </Link>
-        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/settings">
             <Settings /> Settings
@@ -71,10 +70,6 @@ export function UserMenu() {
             </DropdownMenuRadioGroup>
           </DropdownMenuSubContent>
         </DropdownMenuSub>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem onSelect={() => toast.info("Sign-out is not connected yet")}>
-          <LogOut /> Sign out
-        </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   );

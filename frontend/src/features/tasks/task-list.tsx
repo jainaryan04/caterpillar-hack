@@ -6,7 +6,7 @@ import { DataTable } from "@/components/shared/data-table";
 import { ComplexityPips } from "@/components/shared/complexity-pips";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDate, formatDuration, formatTime } from "@/lib/format";
-import { complexityLevel, taskStatusMeta, taskTypeIcon, taskTypeLabel } from "@/lib/status";
+import { complexityLevel, taskStatusMeta, taskTypeIcon } from "@/lib/status";
 import type { EntityLookup } from "@/hooks/use-fleet-data";
 import type { Task } from "@/lib/types";
 
@@ -37,12 +37,12 @@ export function TaskList({ tasks, lookup, onSelect, selectedId, toolbar, filters
       {
         id: "type",
         header: "Type",
-        accessorFn: (t) => taskTypeLabel[t.type],
+        accessorFn: (t) => t.type,
         cell: ({ row: { original: t } }) => {
-          const Icon = taskTypeIcon[t.type];
+          const Icon = taskTypeIcon(t.type);
           return (
             <span className="flex items-center gap-1.5 text-foreground-secondary">
-              <Icon className="size-4" aria-hidden /> {taskTypeLabel[t.type]}
+              <Icon className="size-4" aria-hidden /> {t.type}
             </span>
           );
         },

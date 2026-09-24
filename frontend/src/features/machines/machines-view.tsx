@@ -11,9 +11,10 @@ import { PageContainer } from "@/components/shared/page-container";
 import { SearchBar } from "@/components/shared/search-bar";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { SummaryStrip } from "@/components/shared/summary-strip";
-import { useAlerts, useLookup, useMachines, useZones } from "@/hooks/use-fleet-data";
+import { useAlerts, useLookup, useMachines, useSite, useZones } from "@/hooks/use-fleet-data";
+import { machineTypesFor } from "@/lib/catalog";
 import { useQueryParam } from "@/hooks/use-query-param";
-import { machineStatusMeta, machineTypeLabel } from "@/lib/status";
+import { machineStatusMeta } from "@/lib/status";
 import type { MachineStatus, MachineType } from "@/lib/types";
 import { MachineCard } from "./machine-card";
 import { MachineDrawer } from "./machine-drawer";
@@ -27,6 +28,7 @@ export function MachinesView() {
   const { data: alerts } = useAlerts();
   const { data: zones } = useZones();
   const lookup = useLookup();
+  const site = useSite();
   const [selectedId, setSelectedId] = useQueryParam("machine");
   const [status, setStatus] = useQueryParam("status");
   const [layout, setLayout] = useState<"table" | "grid">("table");
@@ -55,7 +57,7 @@ export function MachinesView() {
         label="Type"
         value={type}
         onChange={setType}
-        options={(Object.keys(machineTypeLabel) as MachineType[]).map((t) => ({ value: t, label: machineTypeLabel[t] }))}
+        options={[...machineTypesFor(site)].sort().map((t) => ({ value: t, label: t }))}
       />
       {filtersActive ? (
         <Button variant="ghost" size="sm" onClick={clear}>
@@ -75,7 +77,7 @@ export function MachinesView() {
             <>
               <span>{machines.length} machines</span>
               <MetaDot />
-              <span>Pit 3 North</span>
+              <span>{site}</span>
             </>
           ) : undefined
         }

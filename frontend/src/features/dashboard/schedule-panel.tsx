@@ -9,7 +9,7 @@ import { SectionCard } from "@/components/shared/section-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { formatTime } from "@/lib/format";
-import { taskStatusMeta, taskTypeLabel } from "@/lib/status";
+import { taskStatusMeta } from "@/lib/status";
 import type { Operator, Task } from "@/lib/types";
 
 interface SchedulePanelProps {
@@ -87,7 +87,7 @@ export function SchedulePanel({ tasks, operators }: SchedulePanelProps) {
                       <Clock className="size-3" aria-hidden /> {formatTime(t.start!)}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-small">
-                      {taskTypeLabel[t.type]} · {t.title}
+                      {t.title}
                     </span>
                     <StatusBadge meta={taskStatusMeta[t.status]} size="sm" className="shrink-0" />
                   </li>
@@ -110,7 +110,7 @@ export function SchedulePanel({ tasks, operators }: SchedulePanelProps) {
                       <Clock className="size-3" aria-hidden /> {formatTime(t.start!)}
                     </span>
                     <span className="min-w-0 flex-1 truncate text-small">
-                      {taskTypeLabel[t.type]} · {t.title}
+                      {t.title}
                     </span>
                     <StatusBadge meta={taskStatusMeta[t.status]} size="sm" className="shrink-0" />
                   </li>

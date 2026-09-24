@@ -17,7 +17,6 @@ import {
   availabilityMeta,
   fatigueTone,
   machineStatusMeta,
-  machineTypeLabel,
   taskStatusMeta,
   toneClasses,
 } from "@/lib/status";
@@ -188,7 +187,7 @@ export function OperatorDrawer({ operator: o, tasks, lookup, onClose }: Operator
             <ul className="flex flex-wrap gap-1.5">
               {o.certifications.map((c) => (
                 <li key={c} className="rounded-sm border bg-raised px-2 py-0.5 text-caption">
-                  {machineTypeLabel[c]}
+                  {c}
                 </li>
               ))}
             </ul>

@@ -8,7 +8,7 @@ import { FatigueIndicator } from "@/components/shared/fatigue-indicator";
 import { DetailList, DrawerSection, RightDrawer } from "@/components/shared/right-drawer";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { addMinutes, formatDate, formatDuration, formatTime } from "@/lib/format";
-import { complexityLabel, taskStatusMeta, taskTypeIcon, taskTypeLabel } from "@/lib/status";
+import { complexityLabel, taskStatusMeta, taskTypeIcon } from "@/lib/status";
 import type { EntityLookup } from "@/hooks/use-fleet-data";
 import type { Task } from "@/lib/types";
 
@@ -28,7 +28,7 @@ export function TaskDrawer({ task, lookup, onClose, onComplete, completing }: Ta
   const machine = lookup.machine(task?.machineId);
   const operator = lookup.operator(task?.operatorId);
   const zone = lookup.zone(task?.zoneId);
-  const TypeIcon = task ? taskTypeIcon[task.type] : null;
+  const TypeIcon = task ? taskTypeIcon(task.type) : null;
   const closed = task?.status === "completed" || task?.status === "cancelled";
 
   return (
@@ -40,7 +40,7 @@ export function TaskDrawer({ task, lookup, onClose, onComplete, completing }: Ta
         task ? (
           <span className="flex items-center gap-1.5">
             {TypeIcon ? <TypeIcon className="size-4" aria-hidden /> : null}
-            <span className="font-mono">{task.id}</span> · {taskTypeLabel[task.type]}
+            <span className="font-mono">{task.id}</span> · {task.type}
           </span>
         ) : undefined
       }

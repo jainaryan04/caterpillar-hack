@@ -1,5 +1,5 @@
 import type { EventContentArg } from "@fullcalendar/core";
-import { complexityLevel, taskTypeLabel } from "@/lib/status";
+import { complexityLevel } from "@/lib/status";
 import type { Task, TaskType } from "@/lib/types";
 
 export interface TaskEventProps {
@@ -10,14 +10,28 @@ export interface TaskEventProps {
 
 /** Short mono type codes — type reads without color (spec §12). */
 const TYPE_CODE: Record<TaskType, string> = {
-  excavation: "EXC",
-  hauling: "HAU",
-  loading: "LOD",
-  grading: "GRD",
-  dozing: "DOZ",
-  drilling: "DRL",
-  inspection: "INS",
-  maintenance: "MNT",
+  "Surface Excavation": "SXC",
+  "Hauling Ore": "HAU",
+  "Aggregate Collection": "AGG",
+  Drilling: "DRL",
+  "Site Preparation": "SPR",
+  Excavation: "EXC",
+  "Road Building": "RDB",
+  "Foundation Work": "FND",
+  "Material Loading": "LOD",
+  Demolition: "DEM",
+  "Well Drilling": "WDR",
+  "Well Servicing": "WSV",
+  "Pipeline Pumping": "PMP",
+  "Gas Compression Service": "GCS",
+  "Generator Maintenance": "GEN",
+  "Backup Generator Testing": "BGT",
+  "Emergency Power Deployment": "EPD",
+  "Cooling System Inspection": "CSI",
+  "Freight Operations": "FRT",
+  "Locomotive Maintenance": "LOC",
+  "Rail Network Inspection": "RNI",
+  "Tugboat Engine Service": "TUG",
 };
 
 function el(tag: string, className: string, text?: string) {
@@ -29,7 +43,7 @@ function el(tag: string, className: string, text?: string) {
 
 function typeCode(type: TaskType) {
   const node = el("span", "shrink-0 rounded-[2px] bg-inset px-1 font-mono text-[10px] leading-4 text-foreground-secondary", TYPE_CODE[type]);
-  node.title = taskTypeLabel[type];
+  node.title = type;
   return node;
 }
 
