@@ -30,10 +30,11 @@ import type {
 } from './types';
 
 const mocks = config.useMocks;
+const fleetMocks = config.mockFleet;
 
-export const operatorService: OperatorService = mocks ? mockOperatorService : fleetOperatorService;
-export const taskService: TaskService = mocks ? mockTaskService : fleetTaskService;
-export const connectionService: ConnectionService = mocks ? mockConnectionService : fleetConnectionService;
+export const operatorService: OperatorService = fleetMocks ? mockOperatorService : fleetOperatorService;
+export const taskService: TaskService = fleetMocks ? mockTaskService : fleetTaskService;
+export const connectionService: ConnectionService = fleetMocks ? mockConnectionService : fleetConnectionService;
 export const agentService: AgentService = mocks ? mockAgentService : catAgentService;
 export const mediaService: MediaService = mocks ? mockMediaService : catMediaService;
 export const videoService: VideoService = mocks ? mockVideoService : catVideoService;

@@ -11,4 +11,6 @@ export const config = {
   catApiUrl: trimSlash(process.env.EXPO_PUBLIC_CAT_API_URL ?? 'http://10.0.2.2:8765'),
   /** Use the built-in mock data instead of either server. */
   useMocks: process.env.EXPO_PUBLIC_USE_MOCKS === '1',
+  /** Mock only the Fleet API (workers, tasks); Cat stays live. For testing the agent without Prediction/. */
+  mockFleet: process.env.EXPO_PUBLIC_USE_MOCKS === '1' || process.env.EXPO_PUBLIC_MOCK_FLEET === '1',
 };
