@@ -1,6 +1,6 @@
 "use client";
 
-import { CircleCheck, Pencil, TriangleAlert } from "lucide-react";
+import { CircleCheck, Loader2, TriangleAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ComplexityPips } from "@/components/shared/complexity-pips";
 import { MachineChip, OperatorChip } from "@/components/shared/entity-chip";
@@ -16,11 +16,15 @@ interface TaskDrawerProps {
   task: Task | undefined;
   lookup: EntityLookup;
   onClose: () => void;
-  onEdit: (task: Task) => void;
   onComplete: (task: Task) => void;
+  completing?: boolean;
 }
 
-export function TaskDrawer({ task, lookup, onClose, onEdit, onComplete }: TaskDrawerProps) {
+/** No "edit" action: the backend has no route that changes a task's own
+ * fields once created, only ones that mark a scheduled portion started/done
+ * (PATCH /v1/assignments/{id}, wired to onComplete below) or re-run the
+ * whole plan (the "Replan" button on the Tasks page). */
+export function TaskDrawer({ task, lookup, onClose, onComplete, completing }: TaskDrawerProps) {
   const machine = lookup.machine(task?.machineId);
   const operator = lookup.operator(task?.operatorId);
   const zone = lookup.zone(task?.zoneId);
@@ -53,13 +57,14 @@ export function TaskDrawer({ task, lookup, onClose, onEdit, onComplete }: TaskDr
       footer={
         task ? (
           <>
-            <Button variant="secondary" onClick={() => onEdit(task)}>
-              <Pencil /> Edit / reschedule
-            </Button>
-            {!closed ? (
-              <Button onClick={() => onComplete(task)}>
-                <CircleCheck /> Mark complete
+            {!closed && /^\d+$/.test(task.id) ? (
+              <Button onClick={() => onComplete(task)} disabled={completing}>
+                {completing ? <Loader2 className="animate-spin" /> : <CircleCheck />} Mark complete
               </Button>
+            ) : !closed ? (
+              <p className="text-caption text-muted-foreground">
+                Not yet in the published plan — nothing to mark complete.
+              </p>
             ) : null}
           </>
         ) : undefined
@@ -95,9 +100,6 @@ export function TaskDrawer({ task, lookup, onClose, onEdit, onComplete }: TaskDr
                 { label: "Zone", value: zone?.name ?? "—" },
               ]}
             />
-            {!closed ? (
-              <p className="text-caption text-muted-foreground">Tip: drag the event on the calendar to reschedule.</p>
-            ) : null}
           </DrawerSection>
 
           <DrawerSection title="Machine">

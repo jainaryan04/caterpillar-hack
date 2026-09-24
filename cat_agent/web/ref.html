@@ -1,0 +1,183 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Cat reference client</title>
+<style>
+  :root { color-scheme: light dark; --accent: #ffcd11; --line: #8884; }
+  body { font: 15px/1.45 system-ui, sans-serif; margin: 0 auto; max-width: 820px; padding: 16px; }
+  h1 { font-size: 18px; margin: 0 0 4px; }
+  p.note { margin: 0 0 16px; opacity: .75; }
+  section { border: 1px solid var(--line); border-radius: 8px; padding: 12px; margin-bottom: 14px; }
+  h2 { font-size: 15px; margin: 0 0 8px; }
+  video { width: 100%; border-radius: 6px; background: #000; display: block; }
+  .draw { position: relative; margin-top: 8px; }
+  .draw img, .draw video { width: 100%; display: block; border-radius: 6px; }
+  .draw canvas { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+  .hint { font-size: 13px; opacity: .7; margin: 6px 0 0; }
+  select, input[type=text], button { font: inherit; padding: 6px 8px; }
+  .row { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .row input[type=text] { flex: 1; min-width: 0; }
+  button { background: var(--accent); color: #111; border: 0; border-radius: 6px; cursor: pointer; }
+  button.plain { background: transparent; color: inherit; border: 1px solid var(--line); }
+  pre { white-space: pre-wrap; font-size: 13px; margin: 8px 0 0; max-height: 260px; overflow: auto; }
+  .pics { display: grid; grid-template-columns: 2fr 1fr; gap: 8px; margin-top: 8px; }
+  .pics img { width: 100%; border-radius: 6px; background: #fff; }
+  .pics figcaption { font-size: 12px; opacity: .7; }
+  #answer img { max-width: 100%; margin-top: 8px; border-radius: 6px; background: #fff; }
+  @media (max-width: 560px) { .pics { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<h1>Cat reference client</h1>
+<p class="note">A bare page showing how the phone app talks to Cat. Pause a video or send a photo, then
+<b>draw a circle</b> around the part you mean (or tap it) and ask out loud: "Hey Cat, what's this?".
+You can also type the question below.</p>
+
+<section>
+  <h2>1. Training video</h2>
+  <select id="videos"></select>
+  <div class="draw">
+    <video id="player" controls playsinline crossorigin="anonymous"></video>
+    <canvas id="videoInk" hidden></canvas>
+  </div>
+  <div class="row"><button id="drawOnVideo" class="plain" hidden>Draw on the paused frame</button></div>
+</section>
+
+<section>
+  <h2>2. Or a photo</h2>
+  <input id="photo" type="file" accept="image/*" capture="environment">
+  <div class="draw" id="photoBox" hidden>
+    <img id="preview" alt="Your photo">
+    <canvas id="photoInk"></canvas>
+  </div>
+  <p class="hint">Draw a circle around the switch you mean, or tap it. Draw again to change it.</p>
+</section>
+
+<section>
+  <h2>3. Ask (typed; voice uses the laptop mic)</h2>
+  <div class="row"><input id="q" type="text" value="What's this one I circled?"><button id="ask">Ask</button></div>
+  <div id="answer"></div>
+</section>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const player = $("player");
+let photoFile = null;
+
+// The server still reports what Cat sees after each pause, photo or circle; this page doesn't display it.
+function show(seen) {}
+
+async function post(url, body) {
+  const r = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+  return r.json();
+}
+
+// Drawing: a canvas over the picture. A short stroke is a tap, a longer one a circle.
+// Points are sent as 0-1 of the picture itself (allowing for letterboxing in the video element).
+function ink(canvas, contentSize, onMark) {
+  const ctx = canvas.getContext("2d");
+  let stroke = null;
+  const toPicture = (e) => {
+    const box = canvas.getBoundingClientRect();
+    const [cw, ch] = contentSize();
+    const scale = Math.min(box.width / cw, box.height / ch);
+    const w = cw * scale, h = ch * scale;
+    return [(e.clientX - box.left - (box.width - w) / 2) / w, (e.clientY - box.top - (box.height - h) / 2) / h];
+  };
+  const redraw = () => {
+    const box = canvas.getBoundingClientRect();
+    canvas.width = box.width * devicePixelRatio; canvas.height = box.height * devicePixelRatio;
+    ctx.scale(devicePixelRatio, devicePixelRatio);
+    if (!stroke) return;
+    ctx.lineWidth = 4; ctx.lineJoin = ctx.lineCap = "round"; ctx.strokeStyle = "#ffcd11";
+    ctx.beginPath();
+    stroke.forEach(([x, y], i) => (i ? ctx.lineTo : ctx.moveTo).call(ctx, x, y));
+    ctx.stroke();
+  };
+  canvas.addEventListener("pointerdown", (e) => {
+    canvas.setPointerCapture(e.pointerId);
+    const box = canvas.getBoundingClientRect();
+    stroke = [[e.clientX - box.left, e.clientY - box.top]];
+    stroke.picture = [toPicture(e)];
+    redraw();
+  });
+  canvas.addEventListener("pointermove", (e) => {
+    if (!stroke || !(e.buttons & 1)) return;
+    const box = canvas.getBoundingClientRect();
+    stroke.push([e.clientX - box.left, e.clientY - box.top]);
+    stroke.picture.push(toPicture(e));
+    redraw();
+  });
+  canvas.addEventListener("pointerup", () => {
+    if (!stroke) return;
+    const pts = stroke.picture;
+    let length = 0;
+    for (let i = 1; i < pts.length; i++) length += Math.hypot(pts[i][0] - pts[i - 1][0], pts[i][1] - pts[i - 1][1]);
+    onMark(length < 0.05 ? { tap: pts[0] } : { circle: pts.filter((_, i) => i % 2 === 0 || i === pts.length - 1) });
+  });
+  return () => { stroke = null; redraw(); };
+}
+
+// ---- video ----
+async function loadVideos() {
+  const list = await (await fetch("/api/videos")).json();
+  $("videos").innerHTML = list.map((v) => `<option value="${v.video_id}">${v.title} (${Math.round(v.duration)}s)</option>`).join("");
+  $("videos").onchange = () => pick(list.find((v) => v.video_id === $("videos").value));
+  if (list.length) pick(list[0]);
+}
+function pick(v) {
+  player.innerHTML = v.subtitles ? `<track kind="subtitles" src="${v.subtitles}" srclang="en" label="English">` : "";
+  player.src = v.url;
+  player.poster = v.poster || "";
+  player.dataset.id = v.video_id;
+}
+const clearVideoInk = ink($("videoInk"), () => [player.videoWidth, player.videoHeight], async (mark) =>
+  show(await post("/api/screen/mark", mark)));
+function drawing(on) {
+  $("videoInk").hidden = !on;
+  $("drawOnVideo").textContent = on ? "Back to the video controls" : "Draw on the paused frame";
+  if (!on) clearVideoInk();
+}
+$("drawOnVideo").onclick = () => drawing($("videoInk").hidden);
+player.addEventListener("pause", async () => {
+  $("drawOnVideo").hidden = false;
+  show(await post("/api/screen/video", { video_id: player.dataset.id, t: player.currentTime }));
+});
+player.addEventListener("play", async () => {
+  $("drawOnVideo").hidden = true; drawing(false);
+  show(await post("/api/screen/playing", {}));
+});
+
+// ---- photo ----
+const clearPhotoInk = ink($("photoInk"), () => [$("preview").naturalWidth, $("preview").naturalHeight], async (mark) => {
+  const r = await fetch("/api/screen/mark", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(mark) });
+  show(await r.json());
+});
+$("photo").onchange = async () => {
+  photoFile = $("photo").files[0];
+  if (!photoFile) return;
+  $("preview").src = URL.createObjectURL(photoFile);
+  $("photoBox").hidden = false;
+  clearPhotoInk();
+  const form = new FormData();
+  form.append("file", photoFile);
+  show(await (await fetch("/api/screen/photo", { method: "POST", body: form })).json());
+};
+
+// ---- typed question ----
+$("ask").onclick = async () => {
+  $("answer").textContent = "…";
+  const r = await post("/api/ask", { question: $("q").value });
+  $("answer").innerHTML = "";
+  const p = document.createElement("p");
+  p.textContent = r.answer;
+  $("answer").append(p);
+  if (r.image_url) { const img = document.createElement("img"); img.src = r.image_url; $("answer").append(img); }
+};
+
+loadVideos();
+</script>
+</body>
+</html>

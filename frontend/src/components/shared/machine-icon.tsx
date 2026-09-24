@@ -50,14 +50,16 @@ const paths: Record<MachineType, React.ReactNode> = {
       <path d="M8 19.5h4" />
     </>
   ),
-  "articulated-truck": (
+  "drill-rig": (
     <>
-      <path d="M2 9h11v6H2z" />
-      <path d="M13 12h2" />
-      <path d="M15 10h4l2 3v2h-6z" />
-      <circle cx="5" cy="18" r="2" />
-      <circle cx="10" cy="18" r="2" />
-      <circle cx="18" cy="18" r="2" />
+      <path d="M8 21V9" />
+      <path d="M4 21h8" />
+      <path d="M8 9l-2.5-5" />
+      <path d="M8 9l2.5-5" />
+      <path d="M4.5 4h7" />
+      <path d="M12 21h9v-3l-3-2h-6" />
+      <circle cx="16" cy="21" r="1.4" />
+      <circle cx="20" cy="21" r="1.4" />
     </>
   ),
 };

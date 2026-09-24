@@ -1,0 +1,43 @@
+{
+ "image": "right-console-photo.jpg",
+ "title": "a photo of the right console: the switch panel (13-20) and the engine speed dial (7)",
+ "source": "frame at 5:38 of Caterpillar's '320D Series 2 Comprehensive Overview' video; positions marked by hand",
+ "controls": {
+  "13": [
+   0.324,
+   0.333
+  ],
+  "14": [
+   0.391,
+   0.333
+  ],
+  "15": [
+   0.459,
+   0.333
+  ],
+  "16": [
+   0.527,
+   0.329
+  ],
+  "20": [
+   0.319,
+   0.431
+  ],
+  "19": [
+   0.388,
+   0.431
+  ],
+  "18": [
+   0.455,
+   0.428
+  ],
+  "17": [
+   0.525,
+   0.424
+  ],
+  "7": [
+   0.492,
+   0.729
+  ]
+ }
+}

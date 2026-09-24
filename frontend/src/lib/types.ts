@@ -8,7 +8,7 @@ export type MachineType =
   | "haul-truck"
   | "wheel-loader"
   | "motor-grader"
-  | "articulated-truck";
+  | "drill-rig";
 
 export type MachineStatus = "operating" | "idle" | "fault" | "maintenance" | "offline";
 
@@ -17,15 +17,20 @@ export interface Machine {
   model: string;
   type: MachineType;
   status: MachineStatus;
-  zoneId: string;
+  /** Not a single backend field -- a machine can be geofenced to several
+   * zones at once (see Prediction/db/schema.sql machine_zone_assignments).
+   * Computed on demand from position + zone polygons (lib/geo.ts) where a
+   * single "current zone" is genuinely useful, e.g. the map drawer. */
+  zoneId?: string;
   operatorId: string | null;
   taskId: string | null;
-  /** Engine-on minutes this shift */
-  runtimeTodayMin: number;
-  engineHours: number;
+  /** Engine-on minutes this shift. Only known once a run has been published. */
+  runtimeTodayMin?: number;
+  /** Not tracked by the backend roster -- omitted, not fabricated, when absent. */
+  engineHours?: number;
   velocityKph: number;
   engineTempC: number;
-  fuelPct: number;
+  fuelPct?: number;
   position: LatLng;
   /** Degrees clockwise from north */
   heading: number;
@@ -55,7 +60,8 @@ export interface Operator {
   availability: Availability;
   machineId: string | null;
   position: LatLng | null;
-  phone: string;
+  /** Not tracked by the backend roster. */
+  phone?: string;
 }
 
 export type TaskType =
@@ -64,6 +70,7 @@ export type TaskType =
   | "loading"
   | "grading"
   | "dozing"
+  | "drilling"
   | "inspection"
   | "maintenance";
 
@@ -87,7 +94,9 @@ export interface Task {
   start: string | null;
   durationMin: number;
   status: TaskStatus;
-  zoneId: string;
+  /** Not tracked by the backend `tasks` table -- present only when derivable
+   * from the assigned machine's own zone assignment. */
+  zoneId?: string;
   notes?: string;
 }
 
@@ -110,7 +119,9 @@ export interface SafetyAlert {
   description: string;
   operatorId?: string;
   machineId?: string;
-  zoneId: string;
+  otherMachineId?: string;
+  /** Not every real event is zone-scoped (only RESTRICTED_ZONE always is). */
+  zoneId?: string;
   position?: LatLng;
   raisedAt: string;
   assignee?: string;
@@ -139,12 +150,4 @@ export interface AppNotification {
   at: string;
   read: boolean;
   href: string;
-}
-
-export interface Manual {
-  id: string;
-  title: string;
-  model: string;
-  docType: "Operation & Maintenance" | "Parts" | "Safety";
-  pages: number;
 }

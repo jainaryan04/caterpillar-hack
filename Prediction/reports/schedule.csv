@@ -1,0 +1,111 @@
+seq,task_id,task_type,industry,stage,execution_mode,worker_id,machine_id,machine_type,start_min,end_min,busy_min,start_at,end_at,work_share_pct,predicted_duration_min,status
+0,T003,Cooling System Inspection,Data Center Power,1,SINGLE,W019,M024,Inspection Kit,0,72,72,,,100.0,72,PLANNED
+1,T004,Demolition,Construction,1,PARALLEL,W011,M012,Excavator,0,251,251,,,100.1,251,PLANNED
+2,T041,Surface Excavation,Mining,1,PARALLEL,W005,M013,Excavator,0,168,168,,,100.1,168,PLANNED
+3,T063,Surface Excavation,Mining,1,PARALLEL,W001,M011,Excavator,0,151,151,,,100.1,151,PLANNED
+4,T069,Cooling System Inspection,Data Center Power,1,SINGLE,W023,M025,Inspection Kit,0,80,80,,,100.0,80,PLANNED
+5,T082,Rail Network Inspection,Marine & Rail,1,PARALLEL,W025,M043,Rail Inspection Vehicle,0,160,160,,,100.0,160,PLANNED
+6,T104,Rail Network Inspection,Marine & Rail,1,PARALLEL,W029,M041,Rail Inspection Vehicle,0,187,187,,,100.0,187,PLANNED
+7,T060,Rail Network Inspection,Marine & Rail,1,PARALLEL,W026,M042,Rail Inspection Vehicle,60,233,173,,,100.2,173,PLANNED
+8,T091,Cooling System Inspection,Data Center Power,1,SINGLE,W019,M024,Inspection Kit,72,137,65,,,100.0,65,PLANNED
+9,T025,Cooling System Inspection,Data Center Power,1,SINGLE,W023,M025,Inspection Kit,80,151,71,,,100.0,71,PLANNED
+10,T021,Well Drilling,Oil & Gas,1,SINGLE,W015,M006,Drilling Rig,120,599,479,,,100.1,479,PLANNED
+11,T026,Demolition,Construction,1,PARALLEL,W009,M010,Excavator,120,352,232,,,100.2,232,PLANNED
+12,T085,Surface Excavation,Mining,1,PARALLEL,W003,M014,Excavator,120,335,215,,,100.2,215,PLANNED
+13,T047,Cooling System Inspection,Data Center Power,1,SINGLE,W019,M024,Inspection Kit,137,188,51,,,100.0,51,PLANNED
+14,T019,Surface Excavation,Mining,1,PARALLEL,W001,M009,Excavator,151,289,138,,,100.0,138,PLANNED
+15,T016,Rail Network Inspection,Marine & Rail,1,PARALLEL,W025,M043,Rail Inspection Vehicle,160,317,157,,,100.0,157,PLANNED
+16,T107,Surface Excavation,Mining,1,PARALLEL,W005,M011,Excavator,168,353,185,,,100.1,185,PLANNED
+17,T043,Well Drilling,Oil & Gas,1,SINGLE,W016,M005,Drilling Rig,180,657,477,,,100.2,477,PLANNED
+18,T048,Demolition,Construction,1,PARALLEL,W010,M013,Excavator,180,341,161,,,100.1,161,PLANNED
+19,T038,Rail Network Inspection,Marine & Rail,1,PARALLEL,W029,M041,Rail Inspection Vehicle,187,354,167,,,100.0,167,PLANNED
+20,T011,Generator Maintenance,Data Center Power,2,SINGLE,W019,M048,Service Truck,188,290,102,,,100.1,102,PLANNED
+21,T033,Generator Maintenance,Data Center Power,2,SINGLE,W020,M049,Service Truck,188,313,125,,,100.0,125,PLANNED
+22,T070,Demolition,Construction,1,PARALLEL,W011,M012,Excavator,251,472,221,,,100.1,221,PLANNED
+23,T055,Generator Maintenance,Data Center Power,2,SINGLE,W019,M048,Service Truck,290,380,90,,,100.1,90,PLANNED
+24,T077,Generator Maintenance,Data Center Power,2,SINGLE,W020,M049,Service Truck,313,406,93,,,100.1,93,PLANNED
+25,T092,Demolition,Construction,1,PARALLEL,W010,M013,Excavator,341,494,153,,,100.1,153,PLANNED
+26,T035,Locomotive Maintenance,Marine & Rail,2,SINGLE,W029,M030,Maintenance Vehicle,354,626,272,,,100.1,272,PLANNED
+27,T079,Locomotive Maintenance,Marine & Rail,2,SINGLE,W027,M029,Maintenance Vehicle,354,577,223,,,100.1,223,PLANNED
+28,T086,Tugboat Engine Service,Marine & Rail,2,SINGLE,W028,M032,Marine Service Vessel,354,590,236,,,100.1,236,PLANNED
+29,T108,Tugboat Engine Service,Marine & Rail,2,SINGLE,W025,M031,Marine Service Vessel,354,539,185,,,100.1,185,PLANNED
+30,T005,Drilling,Mining,2,PARALLEL,W001,M045,Rotary Drill Rig,360,569,209,,,100.1,209,PLANNED
+31,T027,Drilling,Mining,2,PARALLEL,W005,M047,Rotary Drill Rig,360,571,211,,,100.0,211,PLANNED
+32,T049,Drilling,Mining,2,PARALLEL,W006,M046,Rotary Drill Rig,360,601,241,,,100.0,241,PLANNED
+33,T071,Drilling,Mining,2,PARALLEL,W002,M044,Rotary Drill Rig,360,662,302,,,100.3,302,PLANNED
+34,T099,Generator Maintenance,Data Center Power,2,SINGLE,W019,M048,Service Truck,380,469,89,,,100.0,89,PLANNED
+35,T002,Backup Generator Testing,Data Center Power,3,SINGLE,W019,M017,Generator Test Unit,469,547,78,,,100.1,78,PLANNED
+36,T068,Backup Generator Testing,Data Center Power,3,SINGLE,W020,M018,Generator Test Unit,469,548,79,,,100.0,79,PLANNED
+37,T040,Site Preparation,Construction,2,PARALLEL,W010,M003,Bulldozer,494,640,146,,,100.0,146,PLANNED
+38,T062,Site Preparation,Construction,2,PARALLEL,W009,M002,Bulldozer,494,670,176,,,100.1,176,PLANNED
+39,T084,Site Preparation,Construction,2,PARALLEL,W012,M001,Bulldozer,494,630,136,,,100.1,136,PLANNED
+40,T020,Tugboat Engine Service,Marine & Rail,2,SINGLE,W025,M031,Marine Service Vessel,539,722,183,,,100.1,183,PLANNED
+41,T046,Backup Generator Testing,Data Center Power,3,SINGLE,W019,M017,Generator Test Unit,547,622,75,,,100.0,75,PLANNED
+42,T024,Backup Generator Testing,Data Center Power,3,SINGLE,W020,M018,Generator Test Unit,548,620,72,,,100.0,72,PLANNED
+43,T093,Drilling,Mining,2,PARALLEL,W001,M045,Rotary Drill Rig,569,768,199,,,100.1,199,PLANNED
+44,T013,Locomotive Maintenance,Marine & Rail,2,SINGLE,W027,M029,Maintenance Vehicle,577,786,209,,,100.1,209,PLANNED
+45,T042,Tugboat Engine Service,Marine & Rail,2,SINGLE,W028,M032,Marine Service Vessel,590,823,233,,,100.2,233,PLANNED
+46,T087,Well Drilling,Oil & Gas,1,SINGLE,W015,M006,Drilling Rig,599,922,323,,,100.1,323,PLANNED
+47,T090,Backup Generator Testing,Data Center Power,3,SINGLE,W019,M017,Generator Test Unit,622,686,64,,,100.0,64,PLANNED
+48,T057,Locomotive Maintenance,Marine & Rail,2,SINGLE,W029,M030,Maintenance Vehicle,626,916,290,,,100.0,290,PLANNED
+49,T018,Site Preparation,Construction,2,PARALLEL,W012,M001,Bulldozer,630,748,118,,,100.1,118,PLANNED
+50,T106,Site Preparation,Construction,2,PARALLEL,W010,M003,Bulldozer,640,772,132,,,100.1,132,PLANNED
+51,T109,Well Drilling,Oil & Gas,1,SINGLE,W016,M005,Drilling Rig,657,1072,415,,,100.0,416,PLANNED
+52,T028,Emergency Power Deployment,Data Center Power,4,SINGLE,W021,M008,Emergency Generator,686,814,128,,,100.1,128,PLANNED
+53,T094,Emergency Power Deployment,Data Center Power,4,SINGLE,W022,M007,Emergency Generator,686,812,126,,,100.0,126,PLANNED
+54,T064,Tugboat Engine Service,Marine & Rail,2,SINGLE,W025,M031,Marine Service Vessel,722,887,165,,,100.2,165,PLANNED
+55,T023,Aggregate Collection,Mining,3,PARALLEL,W006,M052,Wheel Loader,768,837,69,,,100.0,69,PLANNED
+56,T045,Aggregate Collection,Mining,3,PARALLEL,W004,M054,Wheel Loader,768,846,78,,,100.1,78,PLANNED
+57,T067,Aggregate Collection,Mining,3,PARALLEL,W003,M053,Wheel Loader,768,848,80,,,100.0,80,PLANNED
+58,T051,Excavation,Construction,3,PARALLEL,W012,M013,Excavator,772,942,170,,,100.1,170,PLANNED
+59,T095,Excavation,Construction,3,PARALLEL,W007,M010,Excavator,772,955,183,,,100.1,183,PLANNED
+60,T101,Locomotive Maintenance,Marine & Rail,2,SINGLE,W027,M029,Maintenance Vehicle,786,1013,227,,,100.1,227,PLANNED
+61,T050,Emergency Power Deployment,Data Center Power,4,SINGLE,W022,M007,Emergency Generator,812,932,120,,,100.1,120,PLANNED
+62,T089,Aggregate Collection,Mining,3,PARALLEL,W006,M052,Wheel Loader,837,905,68,,,100.0,68,PLANNED
+63,T001,Aggregate Collection,Mining,3,PARALLEL,W004,M053,Wheel Loader,848,916,68,,,100.0,68,PLANNED
+64,T007,Excavation,Construction,3,PARALLEL,W011,M012,Excavator,852,1067,215,,,100.2,215,PLANNED
+65,T012,Hauling Ore,Mining,4,PARALLEL,W001,M020,Haul Truck,916,991,75,,,100.0,75,PLANNED
+66,T034,Hauling Ore,Mining,4,PARALLEL,W005,M022,Haul Truck,916,1046,130,,,100.1,130,PLANNED
+67,T078,Hauling Ore,Mining,4,PARALLEL,W006,M023,Haul Truck,916,1041,125,,,100.0,125,PLANNED
+68,T100,Hauling Ore,Mining,4,PARALLEL,W002,M019,Haul Truck,916,1086,170,,,100.1,170,PLANNED
+69,T065,Well Drilling,Oil & Gas,1,SINGLE,W015,M006,Drilling Rig,922,1244,322,,,100.1,322,PLANNED
+70,T006,Emergency Power Deployment,Data Center Power,4,SINGLE,W022,M007,Emergency Generator,932,1029,97,,,100.0,97,PLANNED
+71,T073,Excavation,Construction,3,PARALLEL,W012,M011,Excavator,942,1097,155,,,100.1,155,PLANNED
+72,T029,Excavation,Construction,3,PARALLEL,W007,M013,Excavator,955,1098,143,,,100.1,143,PLANNED
+73,T053,Freight Operations,Marine & Rail,3,PARALLEL,W027,M027,Locomotive,1023,1262,239,,,100.1,239,PLANNED
+74,T075,Freight Operations,Marine & Rail,3,PARALLEL,W028,M028,Locomotive,1023,1286,263,,,100.2,263,PLANNED
+75,T072,Emergency Power Deployment,Data Center Power,4,SINGLE,W022,M008,Emergency Generator,1029,1149,120,,,100.1,120,PLANNED
+76,T056,Hauling Ore,Mining,4,PARALLEL,W001,M019,Haul Truck,1086,1211,125,,,100.0,125,PLANNED
+77,T014,Material Loading,Construction,4,PARALLEL,W012,M053,Wheel Loader,1098,1151,53,,,100.0,53,PLANNED
+78,T036,Material Loading,Construction,4,PARALLEL,W010,M056,Wheel Loader,1098,1168,70,,,100.0,70,PLANNED
+79,T058,Material Loading,Construction,4,PARALLEL,W012,M053,Wheel Loader,1151,1207,56,,,100.0,56,PLANNED
+80,T080,Material Loading,Construction,4,PARALLEL,W011,M056,Wheel Loader,1168,1237,69,,,100.0,69,PLANNED
+81,T102,Material Loading,Construction,4,PARALLEL,W010,M054,Wheel Loader,1168,1238,70,,,100.0,70,PLANNED
+82,T008,Foundation Work,Construction,5,PARALLEL,W008,M034,Mobile Crane,1238,1435,197,,,100.1,197,PLANNED
+83,T052,Foundation Work,Construction,5,PARALLEL,W007,M035,Mobile Crane,1238,1432,194,,,100.1,194,PLANNED
+84,T088,Well Servicing,Oil & Gas,2,SINGLE,W014,M051,Well Service Rig,1244,1603,359,,,100.2,359,PLANNED
+85,T110,Well Servicing,Oil & Gas,2,SINGLE,W017,M050,Well Service Rig,1244,1502,258,,,100.1,258,PLANNED
+86,T009,Freight Operations,Marine & Rail,3,PARALLEL,W027,M027,Locomotive,1262,1486,224,,,100.1,224,PLANNED
+87,T031,Freight Operations,Marine & Rail,3,PARALLEL,W028,M028,Locomotive,1286,1496,210,,,100.2,210,PLANNED
+88,T030,Foundation Work,Construction,5,PARALLEL,W007,M035,Mobile Crane,1432,1603,171,,,100.0,171,PLANNED
+89,T074,Foundation Work,Construction,5,PARALLEL,W008,M034,Mobile Crane,1435,1616,181,,,100.1,181,PLANNED
+90,T097,Freight Operations,Marine & Rail,3,PARALLEL,W027,M027,Locomotive,1486,1703,217,,,100.0,217,PLANNED
+91,T066,Well Servicing,Oil & Gas,2,SINGLE,W017,M050,Well Service Rig,1502,1712,210,,,100.2,210,PLANNED
+92,T044,Well Servicing,Oil & Gas,2,SINGLE,W014,M051,Well Service Rig,1603,1877,274,,,100.0,274,PLANNED
+93,T096,Foundation Work,Construction,5,PARALLEL,W008,M034,Mobile Crane,1616,1796,180,,,100.1,180,PLANNED
+94,T022,Well Servicing,Oil & Gas,2,SINGLE,W017,M050,Well Service Rig,1712,1922,210,,,100.2,210,PLANNED
+95,T017,Road Building,Construction,6,PARALLEL,W008,M036,Motor Grader,1796,2025,229,,,100.1,229,PLANNED
+96,T061,Road Building,Construction,6,PARALLEL,W009,M037,Motor Grader,1796,2072,276,,,100.2,276,PLANNED
+97,T037,Pipeline Pumping,Oil & Gas,3,SINGLE,W015,M039,Pipeline Pump,1922,2109,187,,,100.0,187,PLANNED
+98,T103,Pipeline Pumping,Oil & Gas,3,SINGLE,W017,M040,Pipeline Pump,1922,2082,160,,,100.0,160,PLANNED
+99,T083,Road Building,Construction,6,PARALLEL,W008,M036,Motor Grader,2025,2219,194,,,100.1,194,PLANNED
+100,T059,Pipeline Pumping,Oil & Gas,3,SINGLE,W017,M040,Pipeline Pump,2082,2229,147,,,100.1,147,PLANNED
+101,T081,Pipeline Pumping,Oil & Gas,3,SINGLE,W015,M039,Pipeline Pump,2109,2277,168,,,100.1,168,PLANNED
+102,T039,Road Building,Construction,6,PARALLEL,W008,M036,Motor Grader,2219,2402,183,,,100.1,183,PLANNED
+103,T015,Pipeline Pumping,Oil & Gas,3,SINGLE,W017,M040,Pipeline Pump,2229,2366,137,,,100.0,137,PLANNED
+104,T032,Gas Compression Service,Oil & Gas,4,SINGLE,W017,M016,Gas Compressor,2366,2539,173,,,100.2,173,PLANNED
+105,T105,Road Building,Construction,6,PARALLEL,W008,M036,Motor Grader,2402,2601,199,,,100.1,199,PLANNED
+106,T054,Gas Compression Service,Oil & Gas,4,SINGLE,W015,M015,Gas Compressor,2405,2608,203,,,100.1,203,PLANNED
+107,T098,Gas Compression Service,Oil & Gas,4,SINGLE,W017,M016,Gas Compressor,2539,2700,161,,,100.1,161,PLANNED
+108,T076,Gas Compression Service,Oil & Gas,4,SINGLE,W015,M015,Gas Compressor,2608,2846,238,,,100.2,238,PLANNED
+109,T010,Gas Compression Service,Oil & Gas,4,SINGLE,W017,M016,Gas Compressor,2700,2847,147,,,100.1,147,PLANNED

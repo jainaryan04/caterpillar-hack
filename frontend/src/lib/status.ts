@@ -21,6 +21,7 @@ import {
   Ruler,
   Tractor,
   ClipboardCheck,
+  Drill,
   type LucideIcon,
 } from "lucide-react";
 import type {
@@ -107,7 +108,7 @@ export const machineTypeLabel: Record<MachineType, string> = {
   "haul-truck": "Haul truck",
   "wheel-loader": "Wheel loader",
   "motor-grader": "Motor grader",
-  "articulated-truck": "Articulated truck",
+  "drill-rig": "Rotary drill rig",
 };
 
 export const taskTypeLabel: Record<TaskType, string> = {
@@ -116,6 +117,7 @@ export const taskTypeLabel: Record<TaskType, string> = {
   loading: "Loading",
   grading: "Grading",
   dozing: "Dozing",
+  drilling: "Drilling",
   inspection: "Inspection",
   maintenance: "Maintenance",
 };
@@ -126,6 +128,7 @@ export const taskTypeIcon: Record<TaskType, LucideIcon> = {
   loading: Container,
   grading: Ruler,
   dozing: Tractor,
+  drilling: Drill,
   inspection: ClipboardCheck,
   maintenance: Wrench,
 };
@@ -133,12 +136,71 @@ export const taskTypeIcon: Record<TaskType, LucideIcon> = {
 /** Machine types that can perform each task type — narrows the machine picker. */
 export const taskMachineTypes: Record<TaskType, MachineType[] | "any"> = {
   excavation: ["excavator"],
-  hauling: ["haul-truck", "articulated-truck"],
+  hauling: ["haul-truck"],
   loading: ["wheel-loader", "excavator"],
   grading: ["motor-grader"],
   dozing: ["dozer"],
+  drilling: ["drill-rig"],
   inspection: "any",
   maintenance: "any",
+};
+
+/** Real backend task_type string (Mining industry) -> frontend TaskType, and back.
+ * The backend's roster spans five industries for the prediction model, but this
+ * dashboard is scoped to the Mining site it represents (see API.md) -- these are
+ * the only four task types that site actually schedules. */
+export const BACKEND_TASK_TYPE: Record<TaskType, string> = {
+  excavation: "Surface Excavation",
+  hauling: "Hauling Ore",
+  loading: "Aggregate Collection",
+  drilling: "Drilling",
+  grading: "Grading",
+  dozing: "Dozing",
+  inspection: "Inspection",
+  maintenance: "Maintenance",
+};
+export const FRONTEND_TASK_TYPE: Record<string, TaskType> = Object.fromEntries(
+  Object.entries(BACKEND_TASK_TYPE).map(([k, v]) => [v, k as TaskType]),
+);
+
+/** Real backend machine_type string -> frontend MachineType, for the machine
+ * types this Mining site actually operates (API.md §"design decisions"). */
+export const BACKEND_MACHINE_TYPE: Record<MachineType, string> = {
+  excavator: "Excavator",
+  dozer: "Bulldozer",
+  "haul-truck": "Haul Truck",
+  "wheel-loader": "Wheel Loader",
+  "motor-grader": "Motor Grader",
+  "drill-rig": "Rotary Drill Rig",
+};
+export const FRONTEND_MACHINE_TYPE: Record<string, MachineType> = Object.fromEntries(
+  Object.entries(BACKEND_MACHINE_TYPE).map(([k, v]) => [v, k as MachineType]),
+);
+
+/** required_machine_type for a Mining task_type -- deterministic in the
+ * roster (each type has exactly one), used when creating a new task. */
+export const TASK_TYPE_MACHINE: Record<TaskType, string> = {
+  excavation: "Excavator",
+  hauling: "Haul Truck",
+  loading: "Wheel Loader",
+  drilling: "Rotary Drill Rig",
+  grading: "Motor Grader",
+  dozing: "Bulldozer",
+  inspection: "Inspection Kit",
+  maintenance: "Maintenance Vehicle",
+};
+
+/** work_unit and a sane work_quantity range for each Mining task_type,
+ * taken from the real roster (Prediction/db backend), not invented. */
+export const TASK_TYPE_QUANTITY: Record<TaskType, { unit: string; min: number; max: number; default: number }> = {
+  excavation: { unit: "m3", min: 1280, max: 2760, default: 2000 },
+  hauling: { unit: "tonnes", min: 252, max: 1390, default: 900 },
+  loading: { unit: "tonnes", min: 108, max: 337, default: 200 },
+  drilling: { unit: "m drilled", min: 100, max: 158, default: 130 },
+  grading: { unit: "m", min: 200, max: 2000, default: 800 },
+  dozing: { unit: "m3", min: 200, max: 2000, default: 800 },
+  inspection: { unit: "checks", min: 1, max: 20, default: 5 },
+  maintenance: { unit: "hours", min: 1, max: 12, default: 4 },
 };
 
 export const complexityLevel: Record<TaskComplexity, number> = { low: 1, medium: 2, high: 3 };

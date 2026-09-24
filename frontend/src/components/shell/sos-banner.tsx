@@ -5,8 +5,7 @@ import { ArrowRight, MapPin, Siren } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { RelativeTime } from "@/components/shared/relative-time";
-import { useAlerts, useLookup } from "@/hooks/use-fleet-data";
-import { useAlertStore } from "@/stores/alert-store";
+import { useAcknowledgeAlert, useAlerts, useLookup } from "@/hooks/use-fleet-data";
 
 /**
  * Global SOS banner — spec §16. Always visible while any emergency is
@@ -15,7 +14,7 @@ import { useAlertStore } from "@/stores/alert-store";
 export function SosBanner() {
   const { data: alerts } = useAlerts();
   const lookup = useLookup();
-  const setStatus = useAlertStore((s) => s.setStatus);
+  const acknowledgeAlert = useAcknowledgeAlert();
 
   const emergencies = (alerts ?? []).filter((a) => a.category === "emergency");
   const open = emergencies
@@ -53,10 +52,12 @@ export function SosBanner() {
           <Button
             size="sm"
             className="h-7 bg-white font-semibold text-danger hover:bg-white/90"
-            onClick={() => {
-              setStatus(first.id, "acknowledged", "Acknowledged");
-              toast.success(`${first.id} acknowledged`, { description: first.title });
-            }}
+            onClick={() =>
+              acknowledgeAlert.mutate(
+                { id: first.id },
+                { onSuccess: () => toast.success(`${first.id} acknowledged`, { description: first.title }) },
+              )
+            }
           >
             Acknowledge
           </Button>

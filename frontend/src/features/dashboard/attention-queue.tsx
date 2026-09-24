@@ -9,8 +9,7 @@ import { EmptyState } from "@/components/shared/empty-state";
 import { RelativeTime } from "@/components/shared/relative-time";
 import { SectionCard } from "@/components/shared/section-card";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
-import { useAlertStore } from "@/stores/alert-store";
-import type { EntityLookup } from "@/hooks/use-fleet-data";
+import { useAcknowledgeAlert, type EntityLookup } from "@/hooks/use-fleet-data";
 import { ENGINE_TEMP } from "@/lib/mock/machines";
 import { FATIGUE } from "@/lib/mock/operators";
 import { addMinutes } from "@/lib/format";
@@ -42,7 +41,7 @@ interface AttentionQueueProps {
  * breaches. Inline actions so common responses don't need a page change.
  */
 export function AttentionQueue({ machines, operators, tasks, alerts, lookup }: AttentionQueueProps) {
-  const setStatus = useAlertStore((s) => s.setStatus);
+  const acknowledgeAlert = useAcknowledgeAlert();
   const loading = !machines || !operators || !tasks || !alerts;
 
   const items: Item[] = loading
@@ -68,10 +67,11 @@ export function AttentionQueue({ machines, operators, tasks, alerts, lookup }: A
                   ? {
                       label: "Acknowledge",
                       critical: true,
-                      onClick: () => {
-                        setStatus(a.id, "acknowledged", "Acknowledged");
-                        toast.success(`${a.id} acknowledged`);
-                      },
+                      onClick: () =>
+                        acknowledgeAlert.mutate(
+                          { id: a.id },
+                          { onSuccess: () => toast.success(`${a.id} acknowledged`) },
+                        ),
                     }
                   : { label: "View", href: `/safety?event=${a.id}` },
             };

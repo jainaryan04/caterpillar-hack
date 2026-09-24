@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import FullCalendar from "@fullcalendar/react";
-import type { DateSelectArg, EventDropArg, EventInput } from "@fullcalendar/core";
+import type { EventInput } from "@fullcalendar/core";
 import dayGridPlugin from "@fullcalendar/daygrid";
 import timeGridPlugin from "@fullcalendar/timegrid";
-import interactionPlugin, { type EventResizeDoneArg } from "@fullcalendar/interaction";
+import interactionPlugin from "@fullcalendar/interaction";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { SegmentedControl } from "@/components/shared/segmented-control";
@@ -26,8 +26,6 @@ interface TaskCalendarProps {
   tasks: Task[];
   lookup: EntityLookup;
   onSelectTask: (id: string) => void;
-  onReschedule: (id: string, start: Date, durationMin: number, revert: () => void) => void;
-  onCreateRange: (start: Date, durationMin: number) => void;
 }
 
 const HOUR_FORMAT = { hour: "2-digit", minute: "2-digit", hour12: false } as const;
@@ -36,7 +34,10 @@ const HOUR_FORMAT = { hour: "2-digit", minute: "2-digit", hour12: false } as con
  * FullCalendar wrapper — spec §12. Day / Week / Month use the free plugins.
  * The per-machine resource timeline needs FullCalendar Premium (spec flag).
  */
-export default function TaskCalendar({ tasks, lookup, onSelectTask, onReschedule, onCreateRange }: TaskCalendarProps) {
+/** Read-only: a real schedule comes from the solver, not a drag on a
+ * calendar, so events here are not draggable/resizable and empty slots are
+ * not clickable to create a task — see the "New task" button instead. */
+export default function TaskCalendar({ tasks, lookup, onSelectTask }: TaskCalendarProps) {
   const ref = useRef<FullCalendar>(null);
   const [view, setView] = useState<CalendarView>("timeGridDay");
   const [title, setTitle] = useState("");
@@ -63,7 +64,6 @@ export default function TaskCalendar({ tasks, lookup, onSelectTask, onReschedule
             start: t.start!,
             end: addMinutes(t.start!, t.durationMin),
             classNames: [`task-status-${t.status}`],
-            editable: t.status !== "completed" && t.status !== "cancelled",
             extendedProps: props,
           };
         }),
@@ -71,7 +71,6 @@ export default function TaskCalendar({ tasks, lookup, onSelectTask, onReschedule
   );
 
   const api = () => ref.current?.getApi();
-  const minutesBetween = (a: Date, b: Date | null) => (b ? Math.round((b.getTime() - a.getTime()) / 60_000) : 60);
 
   return (
     <div className="flex h-full min-h-[560px] flex-col">
@@ -113,23 +112,11 @@ export default function TaskCalendar({ tasks, lookup, onSelectTask, onReschedule
           slotEventOverlap={false}
           eventMaxStack={view === "timeGridWeek" ? 3 : 8}
           moreLinkClassNames="text-caption font-medium"
-          editable
-          selectable
-          selectMirror
-          snapDuration="00:15:00"
+          editable={false}
+          selectable={false}
           events={events}
           eventContent={renderTaskEvent}
           eventClick={(info) => onSelectTask(info.event.id)}
-          eventDrop={(info: EventDropArg) =>
-            onReschedule(info.event.id, info.event.start!, minutesBetween(info.event.start!, info.event.end), info.revert)
-          }
-          eventResize={(info: EventResizeDoneArg) =>
-            onReschedule(info.event.id, info.event.start!, minutesBetween(info.event.start!, info.event.end), info.revert)
-          }
-          select={(info: DateSelectArg) => {
-            onCreateRange(info.start, info.allDay ? 120 : minutesBetween(info.start, info.end));
-            api()?.unselect();
-          }}
           datesSet={(arg) => setTitle(arg.view.title)}
         />
       </div>

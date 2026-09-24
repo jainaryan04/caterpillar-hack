@@ -6,7 +6,7 @@ import { ChevronsLeft, ChevronsRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { NAV_GROUPS, SETTINGS_ITEM, type NavBadge, type NavItem } from "@/config/nav";
-import { useAlerts, useTasks } from "@/hooks/use-fleet-data";
+import { useAlerts, useConnectionState, useTasks } from "@/hooks/use-fleet-data";
 import { useUiStore } from "@/stores/ui-store";
 import { CatMark } from "./cat-mark";
 import { ConnectionStatus } from "./connection-status";
@@ -79,6 +79,7 @@ function NavLink({
 export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
   const pathname = usePathname();
   const badges = useNavBadges();
+  const connectionState = useConnectionState();
   const isActive = (href: string) => pathname === href || pathname.startsWith(`${href}/`);
 
   return (
@@ -116,7 +117,11 @@ export function SidebarContent({ collapsed = false, onNavigate }: { collapsed?: 
       </nav>
 
       <div className="flex flex-col gap-1 border-t px-3 py-3">
-        <ConnectionStatus collapsed={collapsed} className={cn("h-8 px-2.5", collapsed && "justify-center px-0")} />
+        <ConnectionStatus
+          state={connectionState}
+          collapsed={collapsed}
+          className={cn("h-8 px-2.5", collapsed && "justify-center px-0")}
+        />
         <NavLink
           item={SETTINGS_ITEM}
           active={isActive(SETTINGS_ITEM.href)}

@@ -1,0 +1,399 @@
+[
+ {
+  "callout": "1a",
+  "name": "Air Conditioning and Heater Control",
+  "drawing": "g03654245",
+  "target": [
+   0.8319,
+   0.4895
+  ],
+  "title": "Operation Section > Operator Controls > Air Conditioning and Heating Control (1a - 1b)",
+  "page": 96,
+  "page_end": 96,
+  "images": [],
+  "looks_like": "climate control panel with a small digital display and fan and AUTO buttons, rear of the right console"
+ },
+ {
+  "callout": "1b",
+  "name": "Air Conditioning and Heater Control",
+  "drawing": "g03654245",
+  "target": [
+   0.441,
+   0.7756
+  ],
+  "title": "Operation Section > Operator Controls > Air Conditioning and Heating Control (1a - 1b)",
+  "page": 96,
+  "page_end": 96,
+  "images": [],
+  "looks_like": "small climate buttons on the left console, beside the seat"
+ },
+ {
+  "callout": "2",
+  "name": "Hydraulic Lockout Control",
+  "drawing": "g03654245",
+  "target": [
+   0.3617,
+   0.7129
+  ],
+  "title": "Operation Section > Operator Controls > Hydraulic Lockout Control (2)",
+  "page": 96,
+  "page_end": 96,
+  "images": [],
+  "looks_like": "hydraulic lockout lever on the left console, left of the seat"
+ },
+ {
+  "callout": "3",
+  "name": "Travel Controls",
+  "drawing": "g03654245",
+  "target": [
+   0.1851,
+   0.2926
+  ],
+  "title": "Operation Section > Operator Controls > Travel Controls (3)",
+  "page": 96,
+  "page_end": 98,
+  "images": [
+   "g00753277",
+   "g00731542",
+   "g00731543",
+   "g00731472",
+   "g00731478",
+   "g00731476",
+   "g00731471",
+   "g00731479",
+   "g00731477"
+  ],
+  "looks_like": "two long travel levers with foot pedals, in front of the seat"
+ },
+ {
+  "callout": "4",
+  "name": "Service Hour Meter",
+  "drawing": "g03654245",
+  "target": [
+   0.4202,
+   0.2552
+  ],
+  "title": "Operation Section > Operator Controls > Service Hour Meter (4)",
+  "page": 98,
+  "page_end": 98,
+  "images": [],
+  "looks_like": "service hour meter on the front right pillar, near the monitor"
+ },
+ {
+  "callout": "5",
+  "name": "Monitor",
+  "drawing": "g03654245",
+  "target": [
+   0.4485,
+   0.1111
+  ],
+  "title": "Operation Section > Operator Controls > Monitor (5)",
+  "page": 98,
+  "page_end": 98,
+  "images": [],
+  "looks_like": "monitor screen, front right of the cab"
+ },
+ {
+  "callout": "6",
+  "name": "Joystick Controls",
+  "drawing": "g03654245",
+  "target": [
+   0.5203,
+   0.2662
+  ],
+  "title": "Operation Section > Operator Controls > Joystick Controls (6)",
+  "page": 98,
+  "page_end": 98,
+  "images": [],
+  "looks_like": "joystick handle on the right console (the left one mirrors it)"
+ },
+ {
+  "callout": "7",
+  "name": "Engine Speed Control",
+  "drawing": "g03654245",
+  "target": [
+   0.593,
+   0.3872
+  ],
+  "title": "Operation Section > Operator Controls > Engine Speed Control (7)",
+  "page": 98,
+  "page_end": 99,
+  "images": [],
+  "looks_like": "engine speed dial, round knob on the right console"
+ },
+ {
+  "callout": "8",
+  "name": "Engine Start Switch",
+  "drawing": "g03654245",
+  "target": [
+   0.6223,
+   0.3707
+  ],
+  "title": "Operation Section > Operator Controls > Engine Start Switch (8)",
+  "page": 99,
+  "page_end": 99,
+  "images": [],
+  "looks_like": "key switch (engine start switch) on the right console"
+ },
+ {
+  "callout": "9",
+  "name": "Right Side Control Panel",
+  "drawing": "g03654245",
+  "target": [
+   0.7073,
+   0.3641
+  ],
+  "title": "Operation Section > Operator Controls",
+  "page": 94,
+  "page_end": 96,
+  "images": [],
+  "looks_like": "right side control panel: two rows of round switches plus rocker switches"
+ },
+ {
+  "callout": "10",
+  "name": "Operator's Seat",
+  "drawing": "g03654245",
+  "target": [
+   0.5524,
+   0.5666
+  ],
+  "title": "Operation Section > Operator Controls > Operator's Seat (10)",
+  "page": 99,
+  "page_end": 99,
+  "images": [],
+  "looks_like": "the operator's seat"
+ },
+ {
+  "callout": "11",
+  "name": "Radio",
+  "drawing": "g03654245",
+  "target": [
+   0.6742,
+   0.4917
+  ],
+  "title": "Operation Section > Operator Controls > Radio (11)",
+  "page": 99,
+  "page_end": 99,
+  "images": [],
+  "looks_like": "radio, behind the seat on the right"
+ },
+ {
+  "callout": "12",
+  "name": "Backup Controls (If Equipped)",
+  "drawing": "g03654245",
+  "target": [
+   0.7819,
+   0.5919
+  ],
+  "title": "Operation Section > Operator Controls > Backup Controls (12) (If Equipped)",
+  "page": 99,
+  "page_end": 100,
+  "images": [
+   "g03661499"
+  ],
+  "looks_like": "backup switches under the right console cover"
+ },
+ {
+  "callout": "13",
+  "name": "Travel Speed Control",
+  "drawing": "g03666599",
+  "target": [
+   0.0661,
+   0.451
+  ],
+  "title": "Operation Section > Operator Controls > Travel Speed Control (13)",
+  "page": 100,
+  "page_end": 100,
+  "images": [],
+  "looks_like": "round switch with rabbit and turtle icons, top row, first on the left"
+ },
+ {
+  "callout": "14",
+  "name": "Automatic Engine Speed Control (AEC)",
+  "drawing": "g03666599",
+  "target": [
+   0.1133,
+   0.451
+  ],
+  "title": "Operation Section > Operator Controls > Automatic Engine Speed Control (14)",
+  "page": 100,
+  "page_end": 101,
+  "images": [
+   "g01077282"
+  ],
+  "looks_like": "round switch with the AEC icon, top row, second"
+ },
+ {
+  "callout": "15",
+  "name": "Travel Alarm Cancel Switch",
+  "drawing": "g03666599",
+  "target": [
+   0.1586,
+   0.451
+  ],
+  "title": "Operation Section > Operator Controls > Travel Alarm Cancel Switch (15)",
+  "page": 101,
+  "page_end": 101,
+  "images": [],
+  "looks_like": "round switch with a speaker and sound waves icon, top row, third"
+ },
+ {
+  "callout": "16",
+  "name": "Work Tool Control",
+  "drawing": "g03666599",
+  "target": [
+   0.2002,
+   0.451
+  ],
+  "title": "Operation Section > Operator Controls > Work Tool Control (16)",
+  "page": 101,
+  "page_end": 101,
+  "images": [],
+  "looks_like": "round switch with a work tool (hammer) icon, top row, fourth"
+ },
+ {
+  "callout": "17",
+  "name": "Heavy Lift Control",
+  "drawing": "g03666599",
+  "target": [
+   0.203,
+   0.5708
+  ],
+  "title": "Operation Section > Operator Controls > Heavy Lift Control (17)",
+  "page": 101,
+  "page_end": 101,
+  "images": [],
+  "looks_like": "round switch with a hook (weight) and plus sign icon, bottom row, far right"
+ },
+ {
+  "callout": "18",
+  "name": "Upper Window Washer",
+  "drawing": "g03666599",
+  "target": [
+   0.1586,
+   0.5708
+  ],
+  "title": "Operation Section > Operator Controls > Upper Window Wiper and Window Washer (18-19)",
+  "page": 101,
+  "page_end": 102,
+  "images": [],
+  "looks_like": "round switch with a washer spray icon, bottom row, third"
+ },
+ {
+  "callout": "19",
+  "name": "Upper Window Wiper",
+  "drawing": "g03666599",
+  "target": [
+   0.1133,
+   0.5708
+  ],
+  "title": "Operation Section > Operator Controls > Upper Window Wiper and Window Washer (18-19)",
+  "page": 101,
+  "page_end": 102,
+  "images": [],
+  "looks_like": "round switch with a wiper arc icon, bottom row, second"
+ },
+ {
+  "callout": "20",
+  "name": "Light Switch",
+  "drawing": "g03666599",
+  "target": [
+   0.0614,
+   0.5708
+  ],
+  "title": "Operation Section > Operator Controls > Light Switch (20)",
+  "page": 102,
+  "page_end": 102,
+  "images": [
+   "g01172131"
+  ],
+  "looks_like": "round switch with a lamp beam icon, bottom row, far left"
+ },
+ {
+  "callout": "21",
+  "name": "Quick Coupler Control",
+  "drawing": "g03666599",
+  "target": [
+   0.3003,
+   0.4684
+  ],
+  "title": "Operation Section > Operator Controls > Quick Coupler Control (21)",
+  "page": 102,
+  "page_end": 102,
+  "images": [],
+  "looks_like": "rocker switch with lock icons, first in the middle panel"
+ },
+ {
+  "callout": "22",
+  "name": "Lower Window Wiper",
+  "drawing": "g03666599",
+  "target": [
+   0.3418,
+   0.4684
+  ],
+  "title": "Operation Section > Operator Controls > Lower Window Wiper and Window Washer (22-23)",
+  "page": 102,
+  "page_end": 103,
+  "images": [],
+  "looks_like": "rocker switch with a wiper icon, second in the middle panel"
+ },
+ {
+  "callout": "23",
+  "name": "Lower Window Washer",
+  "drawing": "g03666599",
+  "target": [
+   0.3824,
+   0.4684
+  ],
+  "title": "Operation Section > Operator Controls > Lower Window Wiper and Window Washer (22-23)",
+  "page": 102,
+  "page_end": 103,
+  "images": [],
+  "looks_like": "rocker switch with a washer icon, third in the middle panel"
+ },
+ {
+  "callout": "24",
+  "name": "Seat Heater",
+  "drawing": "g03666599",
+  "target": [
+   0.423,
+   0.4684
+  ],
+  "title": "Operation Section > Operator Controls > Seat Heater (24)",
+  "page": 103,
+  "page_end": 103,
+  "images": [],
+  "looks_like": "rocker switch with a seat heater icon, fourth in the middle panel"
+ },
+ {
+  "callout": "25",
+  "name": "Fine Swing Control",
+  "drawing": "g03666599",
+  "target": [
+   0.4646,
+   0.4684
+  ],
+  "title": "Operation Section > Operator Controls > Fine Swing Control (25) (If Equipped)",
+  "page": 103,
+  "page_end": 103,
+  "images": [],
+  "looks_like": "rocker switch with a swing icon, fifth in the middle panel"
+ },
+ {
+  "callout": "26",
+  "name": "Overload Warning Device",
+  "drawing": "g03666599",
+  "target": [
+   0.5052,
+   0.4684
+  ],
+  "title": "Operation Section > Operator Controls > Overload Warning Device (26) (If Equipped)",
+  "page": 103,
+  "page_end": 104,
+  "images": [
+   "g01615354",
+   "g01615363"
+  ],
+  "looks_like": "rocker switch with an overload warning icon, sixth in the middle panel"
+ }
+]

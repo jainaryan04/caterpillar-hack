@@ -2,7 +2,7 @@
 ======================================================================
 BASELINE MODEL VALIDATION
 ======================================================================
-Dataset: C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\data\prediction_dataset.csv (30000 rows)
+Dataset: C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\Prediction\data\prediction_dataset.csv (30000 rows)
 Train: 24000 (80.0%)  Val: 3000 (10.0%)  Test: 3000 (10.0%)
 
 ======================================================================
@@ -10,31 +10,41 @@ MODEL RESULTS
 ======================================================================
 
 --- Linear Regression ---
-  Validation: MAE=21.70  RMSE=29.22  R2=0.9105
-  Test:       MAE=21.42  RMSE=29.75  R2=0.9013
+  Validation: MAE=17.10  RMSE=23.28  R2=0.9323
+  Test:       MAE=17.16  RMSE=23.38  R2=0.9286
 
 --- Random Forest ---
-  Validation: MAE=20.18  RMSE=28.15  R2=0.9169
-  Test:       MAE=20.41  RMSE=28.36  R2=0.9104
+  Validation: MAE=16.08  RMSE=22.80  R2=0.9351
+  Test:       MAE=16.95  RMSE=23.60  R2=0.9273
 
 --- XGBoost ---
-  Validation: MAE=13.53  RMSE=18.89  R2=0.9626
-  Test:       MAE=13.71  RMSE=19.19  R2=0.9589
+  Validation: MAE=11.38  RMSE=16.05  R2=0.9678
+  Test:       MAE=11.56  RMSE=16.23  R2=0.9656
 
 Best model by test MAE: XGBoost
 
 ======================================================================
+MODEL PERSISTENCE
+======================================================================
+Persisted estimator: XGBoost
+Refit on 27000 rows (train + validation); test set untouched.
+Held-out test: MAE=11.50  RMSE=16.16  R2=0.9659
+Saved  -> C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\Prediction\models\duration_model.joblib
+Schema -> C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\Prediction\models\feature_schema.json
+Reload round-trip identical: PASS
+
+======================================================================
 FEATURE IMPORTANCE (XGBoost)
 ======================================================================
-Task Type                 0.7056
-Industry                  0.2566
-Task Complexity           0.0171
-Operator Skill            0.0099
-Temperature               0.0034
-Weather                   0.0025
-Shift Type                0.0021
-Machine Age               0.0015
-Operator Fatigue Score    0.0013
+Task Type                  0.7601
+Industry                   0.2140
+Task Complexity            0.0118
+Operator Skill             0.0081
+Weather                    0.0015
+Shift Type                 0.0015
+Machine Age                0.0012
+Operator Fatigue Score     0.0009
+Machine Temperature (C)    0.0008
 
 Expected important features found in top 5: ['Operator Skill', 'Task Complexity', 'Task Type']
 Domain-sense check: PASS (3/5 expected features in top 5)
@@ -51,37 +61,40 @@ Dataset:
 
 Distribution:
   Industries:
-    Construction: 24.24%
-    Mining: 22.34%
-    Oil & Gas: 18.86%
+    Construction: 24.25%
+    Mining: 22.35%
+    Oil & Gas: 18.85%
     Marine & Rail: 18.70%
-    Data Center Power: 15.86%
+    Data Center Power: 15.85%
   Task Types (top 5 by frequency):
-    Drilling: 7.07%
+    Drilling: 7.08%
     Surface Excavation: 6.52%
-    Tugboat Engine Service: 6.30%
-    Well Servicing: 5.89%
-    Foundation Work: 5.42%
+    Freight Operations: 6.27%
+    Well Servicing: 6.24%
+    Locomotive Maintenance: 5.42%
   Weather:
-    Sunny: 46.25%
-    Cloudy: 26.74%
-    Rainy: 19.78%
-    Foggy: 7.23%
+    Sunny: 47.93%
+    Cloudy: 24.78%
+    Rainy: 21.01%
+    Foggy: 6.29%
   Shift Type:
-    Day: 66.64%
-    Night: 33.36%
+    Day: 66.20%
+    Night: 33.80%
 
 Relationships (Pearson corr with Actual Duration, net of Task Type baseline):
-  Task Complexity -> Duration: +0.622
-  Operator Skill -> Duration: -0.417
-  Operator Fatigue Score -> Duration: +0.164
-  Machine Age -> Duration: +0.152
+  Task Complexity -> Duration: +0.469
+  Operator Skill -> Duration: -0.526
+  Operator Fatigue Score -> Duration: +0.190
+  Machine Age -> Duration: +0.215
 
 ML (test set):
-  Linear Regression: MAE=21.42  RMSE=29.75  R2=0.9013
-  Random Forest: MAE=20.41  RMSE=28.36  R2=0.9104
-  XGBoost: MAE=13.71  RMSE=19.19  R2=0.9589
+  Linear Regression: MAE=17.16  RMSE=23.38  R2=0.9286
+  Random Forest: MAE=16.95  RMSE=23.60  R2=0.9273
+  XGBoost: MAE=11.56  RMSE=16.23  R2=0.9656
 
-Final dataset saved at: C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\data\prediction_dataset.csv
+Persisted model (XGBoost, refit on train+val) test MAE: 11.50  R2: 0.9659
 
-SUCCESS: Dataset 1 generated, validated, and ML-checked.
+Final dataset saved at: C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\Prediction\data\prediction_dataset.csv
+Serving model saved at:  C:\Users\santh\.vscode\Programming\Hackathons\caterpillar-hack\Prediction\models\duration_model.joblib
+
+SUCCESS: Dataset 1 generated, validated, ML-checked, and model persisted.

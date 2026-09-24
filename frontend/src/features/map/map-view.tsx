@@ -5,7 +5,7 @@ import { Info, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useAlerts, useLookup, useMachines, useOperators, useZones } from "@/hooks/use-fleet-data";
+import { useAlerts, useConnectionState, useLookup, useMachines, useOperators, useZones } from "@/hooks/use-fleet-data";
 import { useQueryParam } from "@/hooks/use-query-param";
 import { ConnectionStatus } from "@/components/shell/connection-status";
 import { MapEntityDrawer } from "./map-entity-drawer";
@@ -28,6 +28,7 @@ export function MapView() {
   const { data: operators } = useOperators();
   const { data: zones } = useZones();
   const { data: alerts } = useAlerts();
+  const connectionState = useConnectionState();
   const lookup = useLookup();
 
   const [focus, setFocus] = useQueryParam("focus");
@@ -113,6 +114,7 @@ export function MapView() {
                   selection={selection}
                   machines={machines}
                   operators={operators}
+                  zones={zones}
                   lookup={lookup}
                   onClose={() => setSelection(null)}
                 />
@@ -131,7 +133,7 @@ export function MapView() {
             <div className="pointer-events-auto flex flex-wrap items-center gap-x-4 gap-y-2 rounded-lg border bg-panel px-3 py-2 shadow-lg">
               <MapLegend />
               <span className="hidden h-4 w-px bg-border md:block" aria-hidden />
-              <ConnectionStatus />
+              <ConnectionStatus state={connectionState} />
               <span className="flex items-center gap-1.5 text-caption text-muted-foreground">
                 <Info className="size-3.5" /> Schematic placeholder for Google Maps
               </span>

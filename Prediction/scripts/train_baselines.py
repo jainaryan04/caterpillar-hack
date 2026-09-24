@@ -12,10 +12,14 @@ Writes reports/model_validation.txt and prints the full final project
 summary (dataset + distribution + relationship + ML) required by the spec.
 """
 
-import numpy as np
-import pandas as pd
+import json
 from pathlib import Path
 
+import joblib
+import numpy as np
+import pandas as pd
+
+from sklearn.base import clone
 from sklearn.model_selection import train_test_split
 from sklearn.compose import ColumnTransformer
 from sklearn.pipeline import Pipeline
@@ -35,10 +39,12 @@ RANDOM_SEED = 42
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_PATH = BASE_DIR / "data" / "prediction_dataset.csv"
 REPORT_PATH = BASE_DIR / "reports" / "model_validation.txt"
+MODEL_PATH = BASE_DIR / "models" / "duration_model.joblib"
+SCHEMA_PATH = BASE_DIR / "models" / "feature_schema.json"
 
 TARGET = "Actual Duration (minutes)"
 CATEGORICAL_FEATURES = ["Industry", "Task Type", "Weather", "Shift Type"]
-NUMERICAL_FEATURES = ["Task Complexity", "Operator Skill", "Operator Fatigue Score", "Machine Age", "Temperature"]
+NUMERICAL_FEATURES = ["Task Complexity", "Operator Skill", "Operator Fatigue Score", "Machine Age", "Machine Temperature (C)"]
 
 
 class Report:
@@ -108,6 +114,67 @@ def get_feature_importance(model, preprocessor, model_name):
     return agg_series
 
 
+def persist_model(r, df, estimator, model_name, X_fit, y_fit, X_test, y_test):
+    """Save preprocessing + estimator as ONE sklearn Pipeline, plus the schema
+    the runtime uses to assert its candidate rows match what was fit.
+
+    One object, not two, because a separately-pickled encoder and estimator
+    can drift apart; an encoder fit on different data silently produces
+    wrongly-ordered columns and the model returns plausible nonsense.
+    """
+    section(r, "MODEL PERSISTENCE")
+
+    pipeline = Pipeline([
+        ("preprocess", build_preprocessor()),
+        ("model", clone(estimator)),
+    ])
+    pipeline.fit(X_fit, y_fit)
+
+    metrics = evaluate(pipeline, X_test, y_test)
+    r.add(f"Persisted estimator: {model_name}")
+    r.add(f"Refit on {len(X_fit)} rows (train + validation); test set untouched.")
+    r.add(f"Held-out test: MAE={metrics['MAE']:.2f}  RMSE={metrics['RMSE']:.2f}  R2={metrics['R2']:.4f}")
+
+    schema = {
+        "target": TARGET,
+        "estimator": model_name,
+        "n_training_rows": int(len(X_fit)),
+        "test_metrics": {k: round(float(v), 4) for k, v in metrics.items()},
+        # Column ORDER matters: the ColumnTransformer selects by name, but the
+        # candidate builder must produce every one of these or transform fails.
+        "feature_order": CATEGORICAL_FEATURES + NUMERICAL_FEATURES,
+        "categorical_features": {
+            col: sorted(df[col].astype(str).unique().tolist())
+            for col in CATEGORICAL_FEATURES
+        },
+        # Ranges the model was actually fit over. XGBoost does not extrapolate,
+        # so a serving value outside these clamps silently -- the runtime warns
+        # rather than discovering it as a quietly wrong prediction.
+        "numerical_features": {
+            col: {
+                "dtype": str(df[col].dtype),
+                "min": float(df[col].min()),
+                "max": float(df[col].max()),
+            }
+            for col in NUMERICAL_FEATURES
+        },
+    }
+
+    MODEL_PATH.parent.mkdir(parents=True, exist_ok=True)
+    joblib.dump(pipeline, MODEL_PATH)
+    SCHEMA_PATH.write_text(json.dumps(schema, indent=2), encoding="utf-8")
+
+    # Round-trip check: a saved model nobody loaded is not a saved model.
+    reloaded = joblib.load(MODEL_PATH)
+    same = np.allclose(reloaded.predict(X_test.head(50)), pipeline.predict(X_test.head(50)))
+    r.add(f"Saved  -> {MODEL_PATH}")
+    r.add(f"Schema -> {SCHEMA_PATH}")
+    r.add(f"Reload round-trip identical: {'PASS' if same else 'FAIL'}")
+    if not same:
+        raise RuntimeError("persisted pipeline does not reproduce its own predictions")
+    return metrics
+
+
 def main():
     df = pd.read_csv(DATA_PATH)
     r = Report()
@@ -167,6 +234,12 @@ def main():
     best_model_name = min(results, key=lambda k: results[k]["test"]["MAE"])
     r.add(f"\nBest model by test MAE: {best_model_name}")
 
+    persisted_metrics = persist_model(
+        r, df, models[best_model_name], best_model_name,
+        pd.concat([X_train, X_val]), pd.concat([y_train, y_val]),
+        X_test, y_test,
+    )
+
     section(r, f"FEATURE IMPORTANCE ({best_model_name})")
     importance = get_feature_importance(fitted_models[best_model_name], preprocessor, best_model_name)
     r.add(importance.round(4).to_string())
@@ -213,8 +286,12 @@ def main():
         m = results[name]["test"]
         r.add(f"  {name}: MAE={m['MAE']:.2f}  RMSE={m['RMSE']:.2f}  R2={m['R2']:.4f}")
 
+    r.add(f"\nPersisted model ({best_model_name}, refit on train+val) test MAE: "
+          f"{persisted_metrics['MAE']:.2f}  R2: {persisted_metrics['R2']:.4f}")
+
     r.add(f"\nFinal dataset saved at: {DATA_PATH}")
-    r.add("\nSUCCESS: Dataset 1 generated, validated, and ML-checked.")
+    r.add(f"Serving model saved at:  {MODEL_PATH}")
+    r.add("\nSUCCESS: Dataset 1 generated, validated, ML-checked, and model persisted.")
 
     r.save(REPORT_PATH)
     print(f"\nFull report written to {REPORT_PATH}")

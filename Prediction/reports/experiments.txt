@@ -1,0 +1,16 @@
+110 tasks | 30 workers | 56 machines | 3 runs x 20s per configuration
+All CP-SAT figures are MEDIAN [min-max] over repeated identical runs.
+
+==========================================================================
+C. THE BOTTLENECK -- ADD OIL & GAS RIGS
+==========================================================================
+Every Oil & Gas stage is single-rig work with 2 machines for 5 tasks,
+so those tasks queue. That is a roster decision, not a solver limit.
+
+ rigs/type  machines   bound   greedy       CP-SAT (median)  vs greedy
+         2        56    2322     2864      2844 [2787-2855]       0.7%
+         3        60    1833     2473      2342 [2288-2342]       5.3%
+         4        64    1628     2303      2213 [2213-2213]       3.9%
+         6        72    1628     2279      2196 [2193-2220]       3.6%
+
+This is the real result: equipment, not optimisation, sets the floor.

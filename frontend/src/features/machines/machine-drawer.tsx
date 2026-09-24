@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { BookOpenText, Fuel, Gauge, LocateFixed, Thermometer, Timer, Wrench } from "lucide-react";
+import { Fuel, Gauge, LocateFixed, Thermometer, Timer, Wrench } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { OperatorChip } from "@/components/shared/entity-chip";
@@ -12,8 +12,8 @@ import { RelativeTime } from "@/components/shared/relative-time";
 import { DrawerSection, RightDrawer } from "@/components/shared/right-drawer";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDuration, formatNumber, formatTime } from "@/lib/format";
+import { zoneContaining } from "@/lib/geo";
 import { ENGINE_TEMP } from "@/lib/mock/machines";
-import { manuals } from "@/lib/mock/manuals";
 import {
   engineTempTone,
   machineStatusMeta,
@@ -22,23 +22,24 @@ import {
   taskStatusMeta,
 } from "@/lib/status";
 import type { EntityLookup } from "@/hooks/use-fleet-data";
-import type { Machine, SafetyAlert } from "@/lib/types";
+import type { Machine, SafetyAlert, Zone } from "@/lib/types";
 import { MachineTempChart } from "./machine-temp-chart";
 
 interface MachineDrawerProps {
   machine: Machine | undefined;
   alerts: SafetyAlert[];
+  zones: Zone[];
   lookup: EntityLookup;
   onClose: () => void;
 }
 
 /** Machine detail panel — spec §5.4: live telemetry, location, operator, task, events. */
-export function MachineDrawer({ machine: m, alerts, lookup, onClose }: MachineDrawerProps) {
+export function MachineDrawer({ machine: m, alerts, zones, lookup, onClose }: MachineDrawerProps) {
   const operator = lookup.operator(m?.operatorId);
   const task = lookup.task(m?.taskId);
   const stale = m?.status === "offline";
   const events = m ? alerts.filter((a) => a.machineId === m.id) : [];
-  const manual = m ? manuals.find((x) => m.model.includes(x.model)) : undefined;
+  const zone = m ? zoneContaining(m.position, zones) : undefined;
 
   return (
     <RightDrawer
@@ -65,7 +66,8 @@ export function MachineDrawer({ machine: m, alerts, lookup, onClose }: MachineDr
           <>
             <StatusBadge meta={machineStatusMeta[m.status]} />
             <span className="text-caption text-muted-foreground">
-              {machineTypeLabel[m.type]} · {lookup.zone(m.zoneId)?.name} · updated <RelativeTime iso={m.lastSeen} />
+              {machineTypeLabel[m.type]}
+              {zone ? ` · ${zone.name}` : ""} · updated <RelativeTime iso={m.lastSeen} />
             </span>
           </>
         ) : undefined
@@ -75,11 +77,6 @@ export function MachineDrawer({ machine: m, alerts, lookup, onClose }: MachineDr
           <>
             <Button variant="ghost" onClick={() => toast.info(`Fault report for ${m.id}`, { description: "Reporting is not connected yet." })}>
               <Wrench /> Report fault
-            </Button>
-            <Button asChild variant="secondary">
-              <Link href={manual ? `/assistant?manual=${manual.id}` : "/assistant"}>
-                <BookOpenText /> Open manual
-              </Link>
             </Button>
             <Button asChild>
               <Link href={`/map?focus=${m.id}`}>
@@ -108,17 +105,17 @@ export function MachineDrawer({ machine: m, alerts, lookup, onClose }: MachineDr
                 size="sm"
                 label="Runtime"
                 icon={Timer}
-                value={formatDuration(m.runtimeTodayMin)}
-                sub={`${formatNumber(m.engineHours)} h total`}
+                value={m.runtimeTodayMin != null ? formatDuration(m.runtimeTodayMin) : "—"}
+                sub={m.engineHours != null ? `${formatNumber(m.engineHours)} h total` : "No lifetime hours on file"}
                 stale={stale}
               />
               <MetricCard
                 size="sm"
                 label="Fuel"
                 icon={Fuel}
-                value={m.fuelPct}
-                unit="%"
-                tone={m.fuelPct < 15 ? "warning" : null}
+                value={m.fuelPct ?? "—"}
+                unit={m.fuelPct != null ? "%" : undefined}
+                tone={m.fuelPct != null && m.fuelPct < 15 ? "warning" : null}
                 stale={stale}
               />
             </div>

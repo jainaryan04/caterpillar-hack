@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import { BackendStatusBanner } from "./backend-status-banner";
 import { CommandSearch } from "./command-search";
 import { MobileNav } from "./mobile-nav";
 import { Sidebar } from "./sidebar";
@@ -20,6 +21,7 @@ export function AppShell({ children }: { children: ReactNode }) {
       >
         Skip to content
       </a>
+      <BackendStatusBanner />
       <SosBanner />
       <div className="flex min-h-0 flex-1">
         <Sidebar />
