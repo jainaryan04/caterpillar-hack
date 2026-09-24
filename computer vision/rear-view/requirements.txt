@@ -1,0 +1,8 @@
+# Same stack as ../depth-estimation, which this imports from.
+# Install either one's requirements; they are the same set.
+torch>=2.1
+torchvision>=0.16
+opencv-python>=4.9
+matplotlib>=3.7
+numpy>=1.24
+ultralytics>=8.3
