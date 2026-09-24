@@ -3,6 +3,7 @@ __pycache__/
 *.pyc
 .venv/
 .env
+.DS_Store
 
 # CV safety subsystem
 media/
@@ -12,3 +13,10 @@ out/
 cat_agent/data/manuals/*.pdf
 cat_agent/data/manuals/images/
 cat_agent/data/manuals/pages/
+
+Depth-Anything-V2
+
+# Depth estimation: upstream clone and model weights, all re-fetchable
+#   Depth-Anything-V2  -> git clone (1.3 GB)
+#   weights/           -> CLIP, pulled by ultralytics on first YOLO-World run
+weights/
