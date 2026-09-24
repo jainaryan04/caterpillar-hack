@@ -13,7 +13,7 @@ import { DrawerSection, RightDrawer } from "@/components/shared/right-drawer";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDuration, formatNumber, formatTime } from "@/lib/format";
 import { zoneContaining } from "@/lib/geo";
-import { ENGINE_TEMP } from "@/lib/mock/machines";
+import { ENGINE_TEMP } from "@/lib/thresholds";
 import {
   engineTempTone,
   machineStatusMeta,

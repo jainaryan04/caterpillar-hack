@@ -111,6 +111,19 @@ export const machineTypeLabel: Record<MachineType, string> = {
   "drill-rig": "Rotary drill rig",
 };
 
+/** Every task type the UI can filter or pick by. The Mining roster only uses
+ * four of these; the rest exist because the model supports them. */
+export const TASK_TYPES: TaskType[] = [
+  "excavation",
+  "hauling",
+  "loading",
+  "drilling",
+  "grading",
+  "dozing",
+  "inspection",
+  "maintenance",
+];
+
 export const taskTypeLabel: Record<TaskType, string> = {
   excavation: "Excavation",
   hauling: "Hauling",

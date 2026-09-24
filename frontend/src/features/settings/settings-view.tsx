@@ -14,8 +14,8 @@ import { PageContainer } from "@/components/shared/page-container";
 import { SectionCard } from "@/components/shared/section-card";
 import { SegmentedControl } from "@/components/shared/segmented-control";
 import { CURRENT_USER } from "@/config/site";
-import { ENGINE_TEMP } from "@/lib/mock/machines";
-import { FATIGUE } from "@/lib/mock/operators";
+import { ENGINE_TEMP } from "@/lib/thresholds";
+import { FATIGUE } from "@/lib/thresholds";
 
 const TIERS = [
   { key: "p1", label: "Critical", hint: "SOS, critical failures, zone breach by a person" },

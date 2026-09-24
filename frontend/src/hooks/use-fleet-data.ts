@@ -40,6 +40,30 @@ export const useTasks = () =>
 export const useZones = () =>
   useGatedQuery(useQuery({ queryKey: queryKeys.zones, queryFn: api.zones, retry: 1 }));
 
+// Run analytics. The published run only changes when someone publishes a new
+// plan, so these don't need the 5s live cadence -- but they must still refetch
+// after a publish, which the mutations below invalidate explicitly.
+const RUN_QUERY_OPTS = { retry: 1 } as const;
+
+export const useRunSummary = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.runSummary, queryFn: api.runSummary, ...RUN_QUERY_OPTS }));
+export const useRunList = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.runList, queryFn: () => api.runList(), ...RUN_QUERY_OPTS }));
+export const useRunUtilization = () =>
+  useGatedQuery(
+    useQuery({ queryKey: queryKeys.runUtilization, queryFn: api.runUtilization, ...RUN_QUERY_OPTS }),
+  );
+export const useRunWorkers = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.runWorkers, queryFn: api.runWorkers, ...RUN_QUERY_OPTS }));
+export const useRunMachines = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.runMachines, queryFn: api.runMachines, ...RUN_QUERY_OPTS }));
+export const useRunPortions = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.runPortions, queryFn: api.runPortions, ...RUN_QUERY_OPTS }));
+export const useWorkerState = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.workerState, queryFn: api.workerState, ...RUN_QUERY_OPTS }));
+export const useMachineState = () =>
+  useGatedQuery(useQuery({ queryKey: queryKeys.machineState, queryFn: api.machineState, ...RUN_QUERY_OPTS }));
+
 export const useApiHealth = () =>
   useQuery({ queryKey: queryKeys.health, queryFn: health, refetchInterval: LIVE_REFETCH_MS, retry: false });
 
@@ -125,39 +149,37 @@ export function useLookup(): EntityLookup {
 // matters most for createTask/replan since the solver's own numbers can
 // differ from any guess the client could make.
 
-export function useCreateTask() {
+/** Anything that changes the schedule changes the run behind every chart, so
+ * the run analytics have to be invalidated alongside the entity lists. The
+ * ["run"] prefix covers all of them in one call. */
+function useScheduleInvalidator() {
   const qc = useQueryClient();
+  return () => {
+    qc.invalidateQueries({ queryKey: queryKeys.tasks });
+    qc.invalidateQueries({ queryKey: queryKeys.machines });
+    qc.invalidateQueries({ queryKey: queryKeys.operators });
+    qc.invalidateQueries({ queryKey: ["run"] });
+  };
+}
+
+export function useCreateTask() {
+  const invalidate = useScheduleInvalidator();
   return useMutation({
     mutationFn: (input: CreateTaskInput) => mutations.createTask(input),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.tasks });
-      qc.invalidateQueries({ queryKey: queryKeys.machines });
-      qc.invalidateQueries({ queryKey: queryKeys.operators });
-    },
+    onSuccess: invalidate,
   });
 }
 
 export function useReplan() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: () => mutations.replan(),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.tasks });
-      qc.invalidateQueries({ queryKey: queryKeys.machines });
-      qc.invalidateQueries({ queryKey: queryKeys.operators });
-    },
-  });
+  const invalidate = useScheduleInvalidator();
+  return useMutation({ mutationFn: () => mutations.replan(), onSuccess: invalidate });
 }
 
 export function useCompleteTask() {
-  const qc = useQueryClient();
+  const invalidate = useScheduleInvalidator();
   return useMutation({
     mutationFn: (taskId: string) => mutations.completeTask(taskId),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: queryKeys.tasks });
-      qc.invalidateQueries({ queryKey: queryKeys.machines });
-      qc.invalidateQueries({ queryKey: queryKeys.operators });
-    },
+    onSuccess: invalidate,
   });
 }
 

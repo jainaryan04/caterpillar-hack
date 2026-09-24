@@ -10,8 +10,8 @@ import { RelativeTime } from "@/components/shared/relative-time";
 import { SectionCard } from "@/components/shared/section-card";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { useAcknowledgeAlert, type EntityLookup } from "@/hooks/use-fleet-data";
-import { ENGINE_TEMP } from "@/lib/mock/machines";
-import { FATIGUE } from "@/lib/mock/operators";
+import { ENGINE_TEMP } from "@/lib/thresholds";
+import { FATIGUE } from "@/lib/thresholds";
 import { addMinutes } from "@/lib/format";
 import type { Machine, Operator, SafetyAlert, Task } from "@/lib/types";
 
@@ -58,7 +58,7 @@ export function AttentionQueue({ machines, operators, tasks, alerts, lookup }: A
               icon: sos ? Siren : a.severity === "high" ? OctagonAlert : TriangleAlert,
               iconClass: sos || a.severity === "high" ? "text-danger" : "text-warning",
               title: `${sos ? "SOS · " : ""}${a.title}`,
-              detail: [lookup.operator(a.operatorId)?.name, a.machineId, lookup.zone(a.zoneId)?.name]
+              detail: [lookup.operator(a.operatorId)?.id, a.machineId, lookup.zone(a.zoneId)?.name]
                 .filter(Boolean)
                 .join(" · "),
               at: a.raisedAt,
@@ -84,7 +84,7 @@ export function AttentionQueue({ machines, operators, tasks, alerts, lookup }: A
             icon: TriangleAlert,
             iconClass: "text-warning",
             title: `${t.id} delayed · ${t.title}`,
-            detail: [t.machineId, lookup.operator(t.operatorId)?.name, t.notes].filter(Boolean).join(" · "),
+            detail: [t.machineId, lookup.operator(t.operatorId)?.id, t.notes].filter(Boolean).join(" · "),
             at: t.start ? addMinutes(t.start, t.durationMin) : undefined,
             action: { label: "Reschedule", href: `/tasks?task=${t.id}` },
           })),
@@ -107,8 +107,8 @@ export function AttentionQueue({ machines, operators, tasks, alerts, lookup }: A
             rank: 3,
             icon: UserRound,
             iconClass: "text-danger",
-            title: `${o.name} fatigue ${o.fatigue}`,
-            detail: `${o.hoursWorked.toFixed(1)} h this shift · ${o.hoursThisWeek} h this week`,
+            title: `${o.id} fatigue ${o.fatigue}`,
+            detail: `${o.hoursWorked.toFixed(1)} h scheduled in this plan`,
             action: { label: "View", href: `/operators?operator=${o.id}` },
           })),
       ]

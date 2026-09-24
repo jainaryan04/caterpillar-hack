@@ -8,7 +8,7 @@ import { PageContainer } from "@/components/shared/page-container";
 import { CURRENT_SHIFT } from "@/config/site";
 import { useAlerts, useLookup, useMachines, useOperators, useTasks, useZones } from "@/hooks/use-fleet-data";
 import { AttentionQueue } from "./attention-queue";
-import { ThroughputChart, UtilizationChart } from "./dashboard-charts";
+import { UtilizationChart, WorkloadChart } from "./dashboard-charts";
 import { FleetOverview } from "./fleet-overview";
 import { KpiRow } from "./kpi-row";
 import { MachineStatusPanel } from "./machine-status-panel";
@@ -72,7 +72,7 @@ export function DashboardView() {
           <RecentActivity alerts={alerts} tasks={tasks} />
         </div>
         <div className="min-w-0 xl:col-span-7">
-          <ThroughputChart />
+          <WorkloadChart />
         </div>
       </div>
     </PageContainer>

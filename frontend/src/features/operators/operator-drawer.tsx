@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { CalendarPlus, Phone } from "lucide-react";
+import { CalendarPlus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,7 @@ import { ShiftProgress } from "@/components/shared/shift-progress";
 import { Sparkline } from "@/components/shared/sparkline";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatTime } from "@/lib/format";
-import { noise } from "@/lib/mock/time";
+import { useRunWorkers, useWorkerState } from "@/hooks/use-fleet-data";
 import {
   availabilityMeta,
   fatigueTone,
@@ -24,8 +24,6 @@ import {
 import type { EntityLookup } from "@/hooks/use-fleet-data";
 import type { Operator, Task } from "@/lib/types";
 
-const WEEKLY_LIMIT = 60;
-
 interface OperatorDrawerProps {
   operator: Operator | undefined;
   tasks: Task[];
@@ -36,16 +34,26 @@ interface OperatorDrawerProps {
 /** Operator profile quick-look — spec §5.3 detail. */
 export function OperatorDrawer({ operator: o, tasks, lookup, onClose }: OperatorDrawerProps) {
   const machine = lookup.machine(o?.machineId);
+  const { data: stateSamples } = useWorkerState();
+  const { data: runWorkers } = useRunWorkers();
+
   const assigned = o
     ? tasks
         .filter((t) => t.operatorId === o.id && t.start)
         .sort((a, b) => a.start!.localeCompare(b.start!))
         .filter((t) => new Date(t.start!).toDateString() === new Date().toDateString())
     : [];
-  const seed = o ? Number(o.id.slice(-3)) : 0;
+
+  // The real fatigue curve the scheduling engine projected for this operator
+  // across the published plan. There is no multi-day fatigue history in the
+  // backend, so this is the plan horizon, not "the last 14 days".
   const trend = o
-    ? Array.from({ length: 14 }, (_, i) => Math.max(0, Math.round(o.fatigue - 18 + i * 1.3 + noise(seed + i) * 12)))
+    ? (stateSamples ?? [])
+        .filter((s) => s.resource_id === o.id)
+        .sort((a, b) => a.t_min - b.t_min)
+        .map((s) => s.value)
     : [];
+  const usage = o ? runWorkers?.find((w) => w.worker_id === o.id) : undefined;
 
   return (
     <RightDrawer
@@ -58,9 +66,9 @@ export function OperatorDrawer({ operator: o, tasks, lookup, onClose }: Operator
               <AvatarFallback className="bg-raised text-small font-semibold">{o.initials}</AvatarFallback>
             </Avatar>
             <span className="flex flex-col leading-tight">
-              {o.name}
-              <span className="font-mono text-caption font-normal text-muted-foreground">
-                {o.id} · {o.role}
+              <span className="font-mono">{o.id}</span>
+              <span className="text-caption font-normal text-muted-foreground">
+                Skill {o.skillLevel}/10 · {o.skills.length} certified task types
               </span>
             </span>
           </span>
@@ -72,13 +80,6 @@ export function OperatorDrawer({ operator: o, tasks, lookup, onClose }: Operator
       footer={
         o ? (
           <>
-            {o.phone ? (
-              <Button asChild variant="secondary">
-                <a href={`tel:${o.phone.replace(/\s/g, "")}`}>
-                  <Phone /> Call
-                </a>
-              </Button>
-            ) : null}
             <Button asChild>
               <Link href="/tasks">
                 <CalendarPlus /> Assign task
@@ -90,19 +91,25 @@ export function OperatorDrawer({ operator: o, tasks, lookup, onClose }: Operator
     >
       {o ? (
         <div className="flex flex-col divide-y">
-          <DrawerSection title="Current shift">
+          <DrawerSection title="Availability window">
             <ShiftProgress shift={o.shift} hoursWorked={o.hoursWorked} plannedHours={o.plannedHours} />
             <DetailList
               items={[
                 {
-                  label: "This week",
-                  value: (
-                    <span className={cn("tabular-nums", o.hoursThisWeek >= WEEKLY_LIMIT * 0.9 && "text-warning")}>
-                      {o.hoursThisWeek} / {WEEKLY_LIMIT} h site limit
+                  label: "Skill level",
+                  value: <span className="font-mono tabular-nums">{o.skillLevel} / 10</span>,
+                },
+                {
+                  label: "In this plan",
+                  value: usage ? (
+                    <span className="tabular-nums">
+                      {usage.n_tasks} {usage.n_tasks === 1 ? "portion" : "portions"} ·{" "}
+                      {usage.utilization_pct}% utilised
                     </span>
+                  ) : (
+                    <span className="text-muted-foreground">Not scheduled</span>
                   ),
                 },
-                { label: "Phone", value: <span className="font-mono">{o.phone ?? "—"}</span> },
               ]}
             />
           </DrawerSection>
@@ -110,25 +117,35 @@ export function OperatorDrawer({ operator: o, tasks, lookup, onClose }: Operator
           <DrawerSection title="Fatigue">
             <div className="flex items-center justify-between gap-4">
               <FatigueIndicator score={o.fatigue} showLabel />
-              <span className="flex items-center gap-2 text-caption text-muted-foreground">
-                14 days
-                <Sparkline data={trend} className={cn("w-24", toneClasses[fatigueTone(o.fatigue)].text)} />
-              </span>
+              {trend.length > 1 ? (
+                <span className="flex items-center gap-2 text-caption text-muted-foreground">
+                  Across plan
+                  <Sparkline data={trend} className={cn("w-24", toneClasses[fatigueTone(o.fatigue)].text)} />
+                </span>
+              ) : null}
             </div>
-            <ul className="grid grid-cols-3 gap-2 text-caption">
-              <li className="rounded-md bg-raised p-2">
-                <span className="block text-muted-foreground">Hours this shift</span>
-                <span className="font-mono text-small">{o.hoursWorked.toFixed(1)}</span>
-              </li>
-              <li className="rounded-md bg-raised p-2">
-                <span className="block text-muted-foreground">Consecutive shifts</span>
-                <span className="font-mono text-small">{Math.min(7, Math.round(o.hoursThisWeek / 11))}</span>
-              </li>
-              <li className="rounded-md bg-raised p-2">
-                <span className="block text-muted-foreground">Night shifts (wk)</span>
-                <span className="font-mono text-small">{o.shift?.name === "Night" ? 3 : 0}</span>
-              </li>
-            </ul>
+            {usage ? (
+              <ul className="grid grid-cols-3 gap-2 text-caption">
+                <li className="rounded-md bg-raised p-2">
+                  <span className="block text-muted-foreground">Start of plan</span>
+                  <span className="font-mono text-small">{usage.start_fatigue}</span>
+                </li>
+                <li className="rounded-md bg-raised p-2">
+                  <span className="block text-muted-foreground">Peak</span>
+                  <span className={cn("font-mono text-small", toneClasses[fatigueTone(usage.peak_fatigue)].text)}>
+                    {usage.peak_fatigue}
+                  </span>
+                </li>
+                <li className="rounded-md bg-raised p-2">
+                  <span className="block text-muted-foreground">End of plan</span>
+                  <span className="font-mono text-small">{usage.end_fatigue}</span>
+                </li>
+              </ul>
+            ) : (
+              <p className="text-small text-muted-foreground">
+                No fatigue projection — this operator has no work in the published plan.
+              </p>
+            )}
           </DrawerSection>
 
           <DrawerSection title="Current machine">

@@ -9,7 +9,7 @@ import { PageContainer } from "@/components/shared/page-container";
 import { SummaryStrip } from "@/components/shared/summary-strip";
 import { useLookup, useOperators, useTasks } from "@/hooks/use-fleet-data";
 import { useQueryParam } from "@/hooks/use-query-param";
-import { FATIGUE } from "@/lib/mock/operators";
+import { FATIGUE } from "@/lib/thresholds";
 import { availabilityMeta } from "@/lib/status";
 import type { Availability, Operator } from "@/lib/types";
 import { OperatorDrawer } from "./operator-drawer";

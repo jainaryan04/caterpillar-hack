@@ -1,318 +1,239 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
-import { Download } from "lucide-react";
-import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { CHART, ChartLegend } from "@/components/charts/chart-primitives";
+import { useMemo } from "react";
 import { KpiCard } from "@/components/shared/kpi-card";
 import { PageHeader } from "@/components/shared/page-header";
 import { PageContainer } from "@/components/shared/page-container";
 import { SectionCard } from "@/components/shared/section-card";
-import { SegmentedControl } from "@/components/shared/segmented-control";
-import { useOperators } from "@/hooks/use-fleet-data";
+import { EmptyState } from "@/components/shared/empty-state";
+import { StatusBadge } from "@/components/shared/status-badge";
+import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import {
-  completionByComplexity,
-  dailySeries,
-  durationStats,
-  operatorProductivity,
-  tasksByType,
-  utilizationByMachineType,
-} from "@/lib/mock/analytics";
-import { formatDuration } from "@/lib/format";
-import { complexityLabel, machineTypeLabel, taskTypeLabel } from "@/lib/status";
-import {
-  CompletionChart,
-  DurationChart,
-  ProductivityChart,
-  UtilizationHoursChart,
-  UtilizationTrendChart,
-} from "./analytics-charts";
+  useRunList,
+  useRunMachines,
+  useRunPortions,
+  useRunSummary,
+  useRunWorkers,
+} from "@/hooks/use-fleet-data";
+import { formatDate, formatDuration, formatPercent } from "@/lib/format";
+import { taskTypeLabel } from "@/lib/status";
+import { UtilizationChart, WorkloadChart } from "../dashboard/dashboard-charts";
 import { BreakdownList } from "./breakdown-list";
 
-type Range = "7" | "14" | "30";
-
-const sum = (xs: number[]) => xs.reduce((a, b) => a + b, 0);
-const avg = (xs: number[]) => (xs.length ? sum(xs) / xs.length : 0);
-
-function TabLayout({ kpis, chart, breakdown, footer }: { kpis: ReactNode; chart: ReactNode; breakdown: ReactNode; footer?: ReactNode }) {
-  return (
-    <div className="flex flex-col gap-4">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">{kpis}</div>
-      <div className="grid gap-4 xl:grid-cols-12">
-        <div className="xl:col-span-8">{chart}</div>
-        <div className="xl:col-span-4">{breakdown}</div>
-      </div>
-      {footer}
-    </div>
-  );
-}
-
-/** Analytics — spec §5.8: trends for planning decisions. */
+/**
+ * Analytics — spec §5.8: trends for planning decisions.
+ *
+ * There is no multi-day history in the backend: only one published plan at a
+ * time, plus a history of past runs. So there is no "last 7/14/30 days"
+ * picker and no "vs. previous period" comparison here — those would have had
+ * to be invented (the previous version of this page did invent them). The
+ * real substitute for a trend is comparing across published RUNS, shown at
+ * the bottom of this page.
+ */
 export function AnalyticsView() {
-  const { data: operators } = useOperators();
-  const [range, setRange] = useState<Range>("30");
-  const [compare, setCompare] = useState(false);
+  const { data: run, isPending: runPending } = useRunSummary();
+  const { data: portions } = useRunPortions();
+  const { data: workers } = useRunWorkers();
+  const { data: machines } = useRunMachines();
+  const { data: runHistory } = useRunList();
 
-  const data = useMemo(() => dailySeries.slice(-Number(range)), [range]);
-  const completed = sum(data.map((d) => d.tasksCompleted));
-  const prevCompleted = sum(data.map((d) => d.prevTasksCompleted));
-  const late = sum(data.map((d) => d.late));
-  const cancelled = sum(data.map((d) => d.cancelled));
-  const utilization = avg(data.map((d) => d.utilization));
-  const prevUtil = avg(data.map((d) => d.prevUtilization));
-  const onTimeRate = completed ? ((completed - late) / completed) * 100 : 0;
-  const pct = (a: number, b: number) => (b ? Math.round(((a - b) / b) * 100) : 0);
+  const taskTypeBreakdown = useMemo(() => {
+    if (!portions) return [];
+    const counts = new Map<string, number>();
+    for (const p of portions) counts.set(p.task_type, (counts.get(p.task_type) ?? 0) + 1);
+    return [...counts.entries()]
+      .map(([type, count]) => ({ label: taskTypeLabel[type as keyof typeof taskTypeLabel] ?? type, value: count }))
+      .sort((a, b) => b.value - a.value);
+  }, [portions]);
+
+  const topWorkers = useMemo(
+    () => [...(workers ?? [])].sort((a, b) => b.utilization_pct - a.utilization_pct).slice(0, 8),
+    [workers],
+  );
+  const topMachines = useMemo(
+    () => [...(machines ?? [])].sort((a, b) => b.utilization_pct - a.utilization_pct).slice(0, 8),
+    [machines],
+  );
+
+  if (runPending) {
+    return (
+      <PageContainer className="flex flex-col gap-4">
+        <PageHeader title="Analytics" description="This plan" />
+        <TableSkeleton rows={8} columns={3} />
+      </PageContainer>
+    );
+  }
+
+  if (!run) {
+    return (
+      <PageContainer className="flex flex-col gap-4">
+        <PageHeader title="Analytics" description="This plan" />
+        <EmptyState
+          variant="clear"
+          title="No published plan yet"
+          description="Publish a schedule from Tasks and every chart here fills in from the solver's own output."
+        />
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer className="flex flex-col gap-4">
       <PageHeader
         title="Analytics"
-        className="pb-1"
-        description={`Pit 3 North · last ${range} days`}
-        actions={
+        description={
           <>
-            <SegmentedControl
-              ariaLabel="Date range"
-              value={range}
-              onChange={setRange}
-              options={[
-                { value: "7", label: "7d" },
-                { value: "14", label: "14d" },
-                { value: "30", label: "30d" },
-              ]}
-            />
-            <div className="flex h-9 items-center gap-2 rounded-md border bg-inset px-3">
-              <Switch id="compare" checked={compare} onCheckedChange={setCompare} />
-              <Label htmlFor="compare" className="text-small">
-                Compare
-              </Label>
-            </div>
-            <Button variant="secondary" onClick={() => toast.info("Export arrives with the analytics API")}>
-              <Download /> Export
-            </Button>
+            {run.label ?? run.id.slice(0, 8)} · published {formatDate(run.created_at)}
           </>
         }
       />
 
-      <Tabs defaultValue="productivity" className="gap-4">
-        <TabsList variant="line" className="h-10 w-full justify-start gap-4 overflow-x-auto rounded-none border-b p-0">
-          {[
-            ["productivity", "Productivity"],
-            ["utilization", "Utilization"],
-            ["completion", "Completion"],
-            ["durations", "Durations"],
-          ].map(([v, l]) => (
-            <TabsTrigger
-              key={v}
-              value={v}
-              className="h-10 flex-none rounded-none border-0 px-1 text-body data-[state=active]:bg-transparent data-[state=active]:shadow-none"
-            >
-              {l}
-            </TabsTrigger>
-          ))}
-        </TabsList>
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4 lg:gap-4">
+        <KpiCard label="Tasks in plan" value={run.n_tasks} denominator={run.n_portions !== run.n_tasks ? run.n_portions : undefined} info="Tasks scheduled; denominator shown only when tasks split into multiple portions." />
+        <KpiCard label="Makespan" value={formatDuration(run.makespan_min)} info="Time from plan start to the last task finishing." />
+        <KpiCard
+          label="Resources used"
+          value={`${run.workers_used}+${run.machines_used}`}
+          denominator={run.workers_total + run.machines_total}
+          info="Workers + machines engaged by this plan, out of the full roster."
+        />
+        <KpiCard
+          label="Solver check"
+          value={run.verified ? "Verified" : "Unverified"}
+          tone={run.verified ? "success" : "danger"}
+          info="Every constraint independently re-checked against the roster after solving."
+        />
+      </div>
 
-        <TabsContent value="productivity">
-          <TabLayout
-            kpis={
-              <>
-                <KpiCard label="Tasks completed" value={completed} delta={{ text: `${pct(completed, prevCompleted)}% vs. prev.`, direction: completed >= prevCompleted ? "up" : "down", good: completed >= prevCompleted }} />
-                <KpiCard label="Tasks / operator-hour" value={avg(data.map((d) => d.tasksPerOperatorHour)).toFixed(2)} info="Completed tasks ÷ operator hours on shift." />
-                <KpiCard label="Productive hours" value={sum(data.map((d) => d.productiveHours))} unit="h" />
-                <KpiCard label="Avg per day" value={Math.round(completed / data.length)} unit="tasks" />
-              </>
-            }
-            chart={
-              <SectionCard
-                title="Tasks completed per day"
-                action={
-                  <ChartLegend
-                    items={[
-                      { label: "This period", color: CHART.series[0] },
-                      ...(compare ? [{ label: "Previous period", color: CHART.reference, dashed: true }] : []),
-                    ]}
-                  />
-                }
-              >
-                <ProductivityChart data={data} compare={compare} />
-              </SectionCard>
-            }
-            breakdown={
-              <SectionCard title="By task type" subtitle="Completed, last 30 days" className="h-full">
-                <BreakdownList items={tasksByType.map((t) => ({ label: taskTypeLabel[t.type], value: t.completed }))} />
-              </SectionCard>
-            }
-            footer={
-              <SectionCard title="Top operators" subtitle="Last 30 days" bodyClassName="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-small">
-                    <thead>
-                      <tr className="border-b">
-                        <th className="eyebrow px-4 py-2 text-left">Operator</th>
-                        <th className="eyebrow px-4 py-2 text-right">Tasks</th>
-                        <th className="eyebrow px-4 py-2 text-right">Hours</th>
-                        <th className="eyebrow px-4 py-2 text-right">Tasks / h</th>
-                        <th className="eyebrow px-4 py-2 text-right">On-time</th>
+      <div className="grid gap-4 xl:grid-cols-12">
+        <div className="min-w-0 xl:col-span-7">
+          <UtilizationChart />
+        </div>
+        <div className="min-w-0 xl:col-span-5">
+          <SectionCard title="Tasks by type" subtitle="Portions in this plan" className="h-full">
+            {taskTypeBreakdown.length ? (
+              <BreakdownList items={taskTypeBreakdown} />
+            ) : (
+              <p className="text-small text-muted-foreground">No portions in this plan.</p>
+            )}
+          </SectionCard>
+        </div>
+
+        <div className="min-w-0 xl:col-span-12">
+          <WorkloadChart />
+        </div>
+
+        <div className="min-w-0 xl:col-span-6">
+          <SectionCard title="Busiest operators" subtitle="By utilisation, this plan" bodyClassName="p-0" className="h-full">
+            {topWorkers.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-small">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="eyebrow px-4 py-2 text-left">Worker</th>
+                      <th className="eyebrow px-4 py-2 text-right">Tasks</th>
+                      <th className="eyebrow px-4 py-2 text-right">Busy</th>
+                      <th className="eyebrow px-4 py-2 text-right">Peak fatigue</th>
+                      <th className="eyebrow px-4 py-2 text-right">Util.</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {topWorkers.map((w) => (
+                      <tr key={w.worker_id} className="hover:bg-raised">
+                        <td className="px-4 py-2 font-mono">{w.worker_id}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">{w.n_tasks}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">{formatDuration(w.busy_min)}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">{w.peak_fatigue}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">{formatPercent(w.utilization_pct)}</td>
                       </tr>
-                    </thead>
-                    <tbody className="divide-y">
-                      {operatorProductivity.map((p) => (
-                        <tr key={p.operatorId} className="hover:bg-raised">
-                          <td className="px-4 py-2">{operators?.find((o) => o.id === p.operatorId)?.name ?? p.operatorId}</td>
-                          <td className="px-4 py-2 text-right font-mono tabular-nums">{p.tasks}</td>
-                          <td className="px-4 py-2 text-right font-mono tabular-nums">{p.hours}</td>
-                          <td className="px-4 py-2 text-right font-mono tabular-nums">{(p.tasks / p.hours).toFixed(2)}</td>
-                          <td className={`px-4 py-2 text-right font-mono tabular-nums ${p.onTimeRate < 85 ? "text-warning" : ""}`}>{p.onTimeRate}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </SectionCard>
-            }
-          />
-        </TabsContent>
-
-        <TabsContent value="utilization">
-          <TabLayout
-            kpis={
-              <>
-                <KpiCard
-                  label="Fleet utilization"
-                  value={Math.round(utilization)}
-                  unit="%"
-                  tone={utilization < 75 ? "warning" : "brand"}
-                  delta={{ text: `${Math.round(utilization - prevUtil)} pts vs. prev.`, direction: utilization >= prevUtil ? "up" : "down", good: utilization >= prevUtil }}
-                  info="Engine-on productive hours ÷ scheduled available hours. Target 75%."
-                />
-                <KpiCard label="Idle hours" value={sum(data.map((d) => d.idleH))} unit="h" />
-                <KpiCard label="Fault downtime" value={sum(data.map((d) => d.faultH))} unit="h" tone="warning" />
-                <KpiCard label="Maintenance" value={sum(data.map((d) => d.maintenanceH))} unit="h" />
-              </>
-            }
-            chart={
-              <div className="flex flex-col gap-4">
-                <SectionCard
-                  title="Fleet hours by state"
-                  action={
-                    <ChartLegend
-                      items={[
-                        { label: "Operating", color: CHART.status.success },
-                        { label: "Idle", color: CHART.series[5] },
-                        { label: "Maintenance", color: CHART.status.info },
-                        { label: "Fault", color: CHART.status.danger },
-                      ]}
-                      className="hidden md:flex"
-                    />
-                  }
-                >
-                  <UtilizationHoursChart data={data} />
-                </SectionCard>
-                <SectionCard title="Utilization trend" subtitle="Target 75%">
-                  <UtilizationTrendChart data={data} compare={compare} />
-                </SectionCard>
+                    ))}
+                  </tbody>
+                </table>
               </div>
-            }
-            breakdown={
-              <SectionCard title="By machine type" subtitle="Below 60% highlighted" className="h-full">
-                <BreakdownList
-                  max={100}
-                  warnBelow={60}
-                  items={utilizationByMachineType.map((u) => ({ label: machineTypeLabel[u.type], value: u.utilization, display: `${u.utilization}%` }))}
-                />
-              </SectionCard>
-            }
-          />
-        </TabsContent>
+            ) : (
+              <p className="p-4 text-small text-muted-foreground">No workers in this plan.</p>
+            )}
+          </SectionCard>
+        </div>
 
-        <TabsContent value="completion">
-          <TabLayout
-            kpis={
-              <>
-                <KpiCard label="Completion rate" value={Math.round(((completed) / (completed + cancelled)) * 100)} unit="%" info="Completed ÷ (completed + cancelled)." />
-                <KpiCard label="On-time rate" value={Math.round(onTimeRate)} unit="%" tone={onTimeRate < 85 ? "warning" : "default"} info="Finished at or before planned end ÷ completed." />
-                <KpiCard label="Late" value={late} tone={late > 0 ? "warning" : "success"} />
-                <KpiCard label="Cancelled" value={cancelled} />
-              </>
-            }
-            chart={
-              <SectionCard
-                title="Completion per day"
-                action={
-                  <ChartLegend
-                    items={[
-                      { label: "On time", color: CHART.series[1] },
-                      { label: "Late", color: CHART.status.warning },
-                      { label: "Cancelled", color: CHART.series[5] },
-                    ]}
-                  />
-                }
-              >
-                <CompletionChart data={data} />
-              </SectionCard>
-            }
-            breakdown={
-              <SectionCard title="On-time by complexity" className="h-full">
-                <BreakdownList
-                  max={100}
-                  warnBelow={80}
-                  items={completionByComplexity.map((c) => ({ label: `${complexityLabel[c.complexity]} complexity`, value: c.onTime, display: `${c.onTime}%` }))}
-                />
-              </SectionCard>
-            }
-          />
-        </TabsContent>
+        <div className="min-w-0 xl:col-span-6">
+          <SectionCard title="Busiest machines" subtitle="By utilisation, this plan" bodyClassName="p-0" className="h-full">
+            {topMachines.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-small">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="eyebrow px-4 py-2 text-left">Machine</th>
+                      <th className="eyebrow px-4 py-2 text-right">Tasks</th>
+                      <th className="eyebrow px-4 py-2 text-right">Busy</th>
+                      <th className="eyebrow px-4 py-2 text-right">Peak temp</th>
+                      <th className="eyebrow px-4 py-2 text-right">Util.</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {topMachines.map((m) => (
+                      <tr key={m.machine_id} className="hover:bg-raised">
+                        <td className="px-4 py-2 font-mono">{m.machine_id}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">{m.n_tasks}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">{formatDuration(m.busy_min)}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">{m.peak_temp_c}°C</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">{formatPercent(m.utilization_pct)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="p-4 text-small text-muted-foreground">No machines in this plan.</p>
+            )}
+          </SectionCard>
+        </div>
 
-        <TabsContent value="durations">
-          <TabLayout
-            kpis={
-              <>
-                <KpiCard label="Median duration" value={formatDuration(avg(durationStats.map((d) => d.median)))} />
-                <KpiCard label="P90 duration" value={formatDuration(avg(durationStats.map((d) => d.p90)))} />
-                <KpiCard
-                  label="Planned vs actual"
-                  value={`+${Math.round(avg(durationStats.map((d) => (d.median - d.planned) / d.planned)) * 100)}`}
-                  unit="%"
-                  tone="warning"
-                  info="(median actual − planned) ÷ planned, averaged across task types."
-                />
-                <KpiCard label="Overrunning types" value={durationStats.filter((d) => d.median > d.planned).length} denominator={durationStats.length} />
-              </>
-            }
-            chart={
-              <SectionCard
-                title="Duration by task type"
-                subtitle="Minutes"
-                action={
-                  <ChartLegend
-                    items={[
-                      { label: "Planned", color: CHART.series[5] },
-                      { label: "Median", color: CHART.series[0] },
-                      { label: "P90", color: CHART.series[3] },
-                    ]}
-                  />
-                }
-              >
-                <DurationChart />
-              </SectionCard>
-            }
-            breakdown={
-              <SectionCard title="Largest overruns" subtitle="Median vs planned" className="h-full">
-                <BreakdownList
-                  items={[...durationStats]
-                    .map((d) => ({ label: taskTypeLabel[d.type], value: Math.max(0, d.median - d.planned) }))
-                    .sort((a, b) => b.value - a.value)
-                    .map((d) => ({ ...d, display: `+${d.value} min` }))}
-                />
-              </SectionCard>
-            }
-          />
-        </TabsContent>
-      </Tabs>
+        <div className="min-w-0 xl:col-span-12">
+          <SectionCard title="Plan history" subtitle="Every run the solver has produced" bodyClassName="p-0">
+            {runHistory && runHistory.length ? (
+              <div className="overflow-x-auto">
+                <table className="w-full text-small">
+                  <thead>
+                    <tr className="border-b">
+                      <th className="eyebrow px-4 py-2 text-left">Run</th>
+                      <th className="eyebrow px-4 py-2 text-left">Published</th>
+                      <th className="eyebrow px-4 py-2 text-right">Makespan</th>
+                      <th className="eyebrow px-4 py-2 text-right">Tasks</th>
+                      <th className="eyebrow px-4 py-2 text-right">Improvement vs. greedy</th>
+                      <th className="eyebrow px-4 py-2 text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y">
+                    {runHistory.map((r) => (
+                      <tr key={r.id} className={r.id === run.id ? "bg-brand-subtle" : "hover:bg-raised"}>
+                        <td className="px-4 py-2">
+                          <span className="truncate">{r.label ?? r.id.slice(0, 8)}</span>
+                        </td>
+                        <td className="px-4 py-2 text-muted-foreground">{formatDate(r.created_at)}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">{formatDuration(r.makespan_min)}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">{r.n_tasks}</td>
+                        <td className="px-4 py-2 text-right font-mono tabular-nums">
+                          {formatPercent(r.improvement_vs_greedy_pct)}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          <StatusBadge
+                            tone={r.status === "PUBLISHED" ? "success" : r.status === "ARCHIVED" ? "neutral" : "info"}
+                            label={r.status}
+                            size="sm"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            ) : (
+              <p className="p-4 text-small text-muted-foreground">No run history yet.</p>
+            )}
+          </SectionCard>
+        </div>
+      </div>
     </PageContainer>
   );
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { ExternalLink, Phone, Siren, X } from "lucide-react";
+import { ExternalLink, Siren, X } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -14,7 +14,7 @@ import { ShiftProgress } from "@/components/shared/shift-progress";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDuration } from "@/lib/format";
 import { pointInPolygon, zoneContaining } from "@/lib/geo";
-import { ENGINE_TEMP } from "@/lib/mock/machines";
+import { ENGINE_TEMP } from "@/lib/thresholds";
 import { alertStatusMeta, availabilityMeta, engineTempTone, machineStatusMeta } from "@/lib/status";
 import { useAcknowledgeAlert, type EntityLookup } from "@/hooks/use-fleet-data";
 import type { Machine, Operator, Zone } from "@/lib/types";
@@ -86,7 +86,7 @@ export function MapEntityDrawer({ selection, machines, operators, zones, lookup,
         </div>
         <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-small">
           <dt className="text-muted-foreground">Operator</dt>
-          <dd className="truncate">{operator?.name ?? "—"}</dd>
+          <dd className="truncate">{operator?.id ?? "—"}</dd>
           <dt className="text-muted-foreground">Task</dt>
           <dd className="truncate">{task ? `${task.id} · ${task.title}` : "—"}</dd>
           <dt className="text-muted-foreground">Zone</dt>
@@ -114,13 +114,6 @@ export function MapEntityDrawer({ selection, machines, operators, zones, lookup,
         }
         footer={
           <>
-            {o.phone ? (
-              <Button asChild size="sm" variant="ghost">
-                <a href={`tel:${o.phone.replace(/\s/g, "")}`}>
-                  <Phone /> Call
-                </a>
-              </Button>
-            ) : null}
             <Button asChild size="sm" variant="secondary">
               <Link href={`/operators?operator=${o.id}`}>
                 Open profile <ExternalLink />
@@ -224,7 +217,7 @@ export function MapEntityDrawer({ selection, machines, operators, zones, lookup,
     >
       <dl className="grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-small">
         <dt className="text-muted-foreground">Person</dt>
-        <dd>{who?.name ?? "Unknown"}</dd>
+        <dd>{who?.id ?? "Unknown"}</dd>
         <dt className="text-muted-foreground">Location</dt>
         <dd>{lookup.zone(a.zoneId)?.name}</dd>
         <dt className="text-muted-foreground">Elapsed</dt>

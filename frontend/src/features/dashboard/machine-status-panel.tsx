@@ -9,7 +9,7 @@ import { SectionCard } from "@/components/shared/section-card";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { TableSkeleton } from "@/components/shared/loading-skeleton";
 import { engineTempTone, machineStatusMeta, toneClasses } from "@/lib/status";
-import { ENGINE_TEMP } from "@/lib/mock/machines";
+import { ENGINE_TEMP } from "@/lib/thresholds";
 import type { Machine, MachineStatus } from "@/lib/types";
 
 const ORDER: MachineStatus[] = ["operating", "idle", "fault", "maintenance", "offline"];

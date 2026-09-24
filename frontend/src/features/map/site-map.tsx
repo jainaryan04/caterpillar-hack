@@ -3,7 +3,7 @@
 import type { KeyboardEvent } from "react";
 import { Siren } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { SITE_BOUNDS, SITE_PLAN } from "@/lib/mock/site";
+import { SITE_BOUNDS, SITE_PLAN } from "@/lib/site-plan";
 import { availabilityMeta, machineStatusMeta, type Tone } from "@/lib/status";
 import type { LatLng, Machine, Operator, SafetyAlert, Zone } from "@/lib/types";
 import { MachineIcon } from "@/components/shared/machine-icon";
@@ -203,7 +203,7 @@ export function SiteMap({
         ? loose.map((o) => {
             const p = toPlan(o.position!);
             const tone = availabilityMeta[o.availability].tone;
-            const label = `${o.name}, ${availabilityMeta[o.availability].label}`;
+            const label = `${o.id}, ${availabilityMeta[o.availability].label}`;
             return (
               <g
                 key={o.id}

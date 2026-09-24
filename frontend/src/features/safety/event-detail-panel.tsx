@@ -115,7 +115,7 @@ export function EventDetailPanel({ alert: a, lookup, onClose }: { alert?: Safety
               <dt className="text-muted-foreground">Person</dt>
               <dd>
                 <Link href={`/operators?operator=${operator.id}`} className="hover:underline">
-                  {operator.name}
+                  {operator.id}
                 </Link>
               </dd>
             </>

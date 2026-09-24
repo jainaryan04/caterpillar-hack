@@ -8,7 +8,7 @@ import { MachineChip } from "@/components/shared/entity-chip";
 import { RelativeTime } from "@/components/shared/relative-time";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDuration, formatNumber } from "@/lib/format";
-import { ENGINE_TEMP } from "@/lib/mock/machines";
+import { ENGINE_TEMP } from "@/lib/thresholds";
 import { engineTempTone, machineStatusMeta, toneClasses, toneIcon } from "@/lib/status";
 import type { EntityLookup } from "@/hooks/use-fleet-data";
 import type { Machine } from "@/lib/types";
@@ -88,7 +88,7 @@ export function MachineTable({ machines, lookup, selectedId, onSelect, toolbar, 
       {
         id: "operator",
         header: "Operator",
-        accessorFn: (m) => lookup.operator(m.operatorId)?.name ?? "",
+        accessorFn: (m) => lookup.operator(m.operatorId)?.id ?? "",
         cell: ({ getValue }) => getValue<string>() || <span className="text-muted-foreground">—</span>,
         meta: { className: "hidden md:table-cell" },
       },
@@ -128,7 +128,7 @@ export function MachineTable({ machines, lookup, selectedId, onSelect, toolbar, 
       data={machines}
       isLoading={!machines}
       getRowId={(m) => m.id}
-      searchText={(m) => `${m.id} ${m.model} ${lookup.operator(m.operatorId)?.name ?? ""}`}
+      searchText={(m) => `${m.id} ${m.model} ${lookup.operator(m.operatorId)?.id ?? ""}`}
       searchPlaceholder="Search ID, model, operator…"
       toolbar={toolbar}
       onRowClick={(m) => onSelect(m.id)}

@@ -18,7 +18,7 @@ import {
   useTasks,
 } from "@/hooks/use-fleet-data";
 import { useQueryParam } from "@/hooks/use-query-param";
-import { TASK_TYPES } from "@/lib/mock/tasks";
+import { TASK_TYPES } from "@/lib/status";
 import { taskStatusMeta, taskTypeLabel } from "@/lib/status";
 import type { TaskStatus, TaskType } from "@/lib/types";
 import type { CreateTaskInput } from "@/lib/api/client";

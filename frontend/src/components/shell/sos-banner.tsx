@@ -37,7 +37,7 @@ export function SosBanner() {
           <span className="font-semibold tracking-wide">SOS</span>
           <span className="truncate font-medium">{first.title}</span>
           <span className="hidden text-white/85 sm:inline">
-            · {operator?.name ?? "Unknown"} · {zone?.name}
+            · {operator?.id ?? "Unknown"} · {zone?.name}
           </span>
           <span className="font-mono text-white/85">
             · <RelativeTime iso={first.raisedAt} mode="elapsed" /> elapsed

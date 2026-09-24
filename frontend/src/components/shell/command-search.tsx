@@ -90,9 +90,9 @@ export function CommandSearch() {
           </CommandGroup>
           <CommandGroup heading="Operators">
             {operators?.map((o) => (
-              <CommandItem key={o.id} value={`${o.id} ${o.name}`} onSelect={() => go(`/operators?operator=${o.id}`)}>
+              <CommandItem key={o.id} value={`${o.id}`} onSelect={() => go(`/operators?operator=${o.id}`)}>
                 <span className="flex size-4 items-center justify-center text-[9px] font-semibold">{o.initials}</span>
-                {o.name}
+                {o.id}
                 <CommandShortcut className="font-mono">{o.id}</CommandShortcut>
               </CommandItem>
             ))}

@@ -124,7 +124,7 @@ export function EntityListPanel({ machines, operators, sos, selection, onSelect,
         {tab === "operators"
           ? operators
               .filter((o) => o.position)
-              .filter((o) => !q || `${o.id} ${o.name}`.toLowerCase().includes(q))
+              .filter((o) => !q || `${o.id}`.toLowerCase().includes(q))
               .map((o) => (
                 <li key={o.id}>
                   <button

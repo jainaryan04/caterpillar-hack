@@ -312,16 +312,16 @@ async function operators(): Promise<Operator[]> {
       .map((backendType) => FRONTEND_MACHINE_TYPE[backendType])
       .filter(Boolean);
     const assignment = current.get(w.worker_id);
-    // busy_min is scoped to today's published run, not a weekly total the
-    // backend has no history for -- "this week" is honestly the same number.
     const hoursWorked = Math.round(((busyById.get(w.worker_id) ?? 0) / 60) * 10) / 10;
 
     return {
       id: w.worker_id,
-      name: `Operator ${w.worker_id}`,
       initials: w.worker_id.replace(/\D/g, "").slice(-2).padStart(2, "0"),
-      role: "Equipment Operator",
+      skillLevel: w.skill_level,
+      skills,
       certifications,
+      // available_from_min/until_min are real minute offsets; the Day/Night
+      // label is our own reading of a window that starts before or after noon.
       shift: {
         name: w.available_from_min < 720 ? "Day" : "Night",
         start: `${String(Math.floor((w.available_from_min / 60) % 24)).padStart(2, "0")}:00`,
@@ -329,7 +329,6 @@ async function operators(): Promise<Operator[]> {
       },
       hoursWorked,
       plannedHours: Math.round(((w.available_until_min - w.available_from_min) / 60) * 10) / 10,
-      hoursThisWeek: hoursWorked,
       fatigue: Math.round(num(w.current_fatigue)),
       availability: deriveAvailability(w.status),
       machineId: assignment?.machine_id ?? null,
@@ -565,6 +564,146 @@ async function notifications(): Promise<AppNotification[]> {
     );
 }
 
+// ------------------------------------------------------------ run analytics ---
+// The published run is the schedule the solver actually produced, and the
+// backend already derives every headline number from it. These reads are the
+// real source for the charts and trends that used to be generated client-side.
+// Each degrades to null/[] when nothing is published yet (getActiveOr), so a
+// fresh database shows an honest empty state instead of a fabricated zero.
+
+export interface RunSummary {
+  id: string;
+  created_at: string;
+  label: string | null;
+  horizon_start: string;
+  status: "DRAFT" | "PUBLISHED" | "ARCHIVED";
+  solver_status: string;
+  makespan_min: number;
+  makespan_days: number;
+  lower_bound_min: number;
+  greedy_makespan_min: number;
+  improvement_vs_greedy_pct: number;
+  optimality_gap_pct: number;
+  total_busy_min: number;
+  n_tasks: number;
+  n_portions: number;
+  workers_used: number;
+  machines_used: number;
+  workers_total: number;
+  machines_total: number;
+  verified: boolean;
+  solve_seconds: number;
+  assignments_done: number;
+  assignments_total: number;
+}
+
+export interface UtilizationResource {
+  kind: "machine" | "worker";
+  resource_id: string;
+  detail: string;
+  n_tasks: number;
+  busy_min: number;
+  idle_min: number;
+  utilization_pct: number;
+}
+
+export interface RunUtilization {
+  makespan_min: number;
+  summary: {
+    resources_total: number;
+    resources_used: number;
+    resources_idle: number;
+    mean_utilization_pct: number;
+    mean_utilization_of_used_pct: number;
+  };
+  resources: UtilizationResource[];
+}
+
+/** One point on a resource's fatigue (worker) or engine-temperature (machine)
+ * curve, in minutes from the run's horizon start. */
+export interface StateSample {
+  resource_kind: "machine" | "worker";
+  resource_id: string;
+  t_min: number;
+  value: number;
+}
+
+export interface RunWorker {
+  worker_id: string;
+  worker_status: string;
+  skill_level: number;
+  n_tasks: number;
+  busy_min: number;
+  utilization_pct: number;
+  start_fatigue: number;
+  end_fatigue: number;
+  peak_fatigue: number;
+  skills: string[];
+}
+
+export interface RunMachine {
+  machine_id: string;
+  machine_type: string;
+  machine_status: string;
+  n_tasks: number;
+  busy_min: number;
+  idle_min: number;
+  utilization_pct: number;
+  start_temp_c: number;
+  end_temp_c: number;
+  peak_temp_c: number;
+}
+
+/**
+ * One scheduled portion, keeping the solver's own integer minute offsets.
+ * The replay works off start_min/end_min rather than start_at/end_at: the
+ * whole point is to compress the horizon onto a different time axis, and
+ * minutes-from-zero normalise without any date arithmetic.
+ */
+export interface ScheduledPortion {
+  id: number;
+  task_id: string;
+  task_type: string;
+  industry: string;
+  worker_id: string;
+  machine_id: string;
+  machine_type: string;
+  start_min: number;
+  end_min: number;
+  busy_min: number;
+  start_at: string;
+  end_at: string;
+  status: "PLANNED" | "IN_PROGRESS" | "DONE" | "CANCELLED";
+  predicted_duration_min: number | null;
+  work_share_pct: number | null;
+}
+
+const runSummary = () => getActiveOr<RunSummary | null>("/v1/runs/active", null);
+
+const runList = (limit = 10) =>
+  apiFetch<{ runs: RunSummary[] }>(`/v1/runs?limit=${limit}`).then((r) => r.runs);
+
+const runUtilization = () => getActiveOr<RunUtilization | null>("/v1/runs/active/utilization", null);
+
+const runStateSamples = (kind: "worker" | "machine") =>
+  getActiveOr<{ samples: StateSample[] }>(`/v1/runs/active/state?kind=${kind}`, { samples: [] }).then(
+    (r) => r.samples,
+  );
+
+const runWorkers = () =>
+  getActiveOr<{ workers: RunWorker[] }>("/v1/runs/active/workers", { workers: [] }).then((r) => r.workers);
+
+const runMachines = () =>
+  getActiveOr<{ machines: RunMachine[] }>("/v1/runs/active/machines", { machines: [] }).then(
+    (r) => r.machines,
+  );
+
+/** Every portion of the published schedule, with solver minute offsets intact. */
+const runPortions = () =>
+  getActiveOr<{ assignments: ScheduledPortion[] }>("/v1/runs/active/assignments", {
+    assignments: [],
+  }).then((r) => r.assignments);
+
 export const api = {
   machines: machinesWithTelemetry,
   operators,
@@ -572,6 +711,14 @@ export const api = {
   alerts,
   notifications,
   zones,
+  runSummary,
+  runList,
+  runUtilization,
+  runWorkers,
+  runMachines,
+  runPortions,
+  workerState: () => runStateSamples("worker"),
+  machineState: () => runStateSamples("machine"),
 };
 
 export const mutations = {
@@ -590,4 +737,12 @@ export const queryKeys = {
   notifications: ["notifications"] as const,
   zones: ["zones"] as const,
   health: ["health"] as const,
+  runSummary: ["run", "summary"] as const,
+  runList: ["run", "list"] as const,
+  runUtilization: ["run", "utilization"] as const,
+  runWorkers: ["run", "workers"] as const,
+  runMachines: ["run", "machines"] as const,
+  runPortions: ["run", "portions"] as const,
+  workerState: ["run", "state", "worker"] as const,
+  machineState: ["run", "state", "machine"] as const,
 };

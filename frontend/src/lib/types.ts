@@ -46,22 +46,24 @@ export interface Shift {
 }
 
 export interface Operator {
+  /** The real worker_id (e.g. "W019"). The backend roster has no personal
+   * names, so this doubles as the display identity — inventing one would
+   * misrepresent who is actually on the roster. */
   id: string;
-  name: string;
   initials: string;
-  role: "Equipment Operator" | "Site Supervisor" | "Safety Officer";
+  /** 1–10, straight from the roster. */
+  skillLevel: number;
+  /** Raw backend skill strings, e.g. "Surface Excavation". */
+  skills: string[];
   certifications: MachineType[];
   shift: Shift | null;
   hoursWorked: number;
   plannedHours: number;
-  hoursThisWeek: number;
   /** 0–100; bands: <40 normal, 40–69 elevated, ≥70 high */
   fatigue: number;
   availability: Availability;
   machineId: string | null;
   position: LatLng | null;
-  /** Not tracked by the backend roster. */
-  phone?: string;
 }
 
 export type TaskType =

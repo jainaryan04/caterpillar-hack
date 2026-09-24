@@ -24,7 +24,7 @@ export function EventRow({ alert: a, lookup, selected, onSelect, onAcknowledge }
   const sev = severityMeta[a.severity];
   const SevIcon = sev.icon;
   const pulsing = a.severity === "critical" && a.status === "open";
-  const subject = [lookup.operator(a.operatorId)?.name, a.machineId, lookup.zone(a.zoneId)?.name].filter(Boolean).join(" · ");
+  const subject = [lookup.operator(a.operatorId)?.id, a.machineId, lookup.zone(a.zoneId)?.name].filter(Boolean).join(" · ");
 
   return (
     <li

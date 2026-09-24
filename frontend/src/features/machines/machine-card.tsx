@@ -3,7 +3,7 @@ import { MachineIcon } from "@/components/shared/machine-icon";
 import { RelativeTime } from "@/components/shared/relative-time";
 import { StatusBadge } from "@/components/shared/status-badge";
 import { formatDuration } from "@/lib/format";
-import { ENGINE_TEMP } from "@/lib/mock/machines";
+import { ENGINE_TEMP } from "@/lib/thresholds";
 import { engineTempTone, machineStatusMeta, toneClasses, toneIcon } from "@/lib/status";
 import type { Machine, Operator, Task } from "@/lib/types";
 
@@ -73,7 +73,7 @@ export function MachineCard({ machine: m, operator, task, selected, onSelect }: 
 
       <div className="flex flex-col gap-0.5 px-4 py-3 text-caption">
         <span className="truncate text-foreground-secondary">
-          {operator ? operator.name : <span className="text-muted-foreground">No operator</span>}
+          {operator ? operator.id : <span className="text-muted-foreground">No operator</span>}
           {task ? <span className="text-muted-foreground"> · {task.id} {task.title}</span> : null}
         </span>
         <span className="text-muted-foreground">

@@ -44,7 +44,7 @@ export function OperatorTable({
       {
         id: "operator",
         header: "Operator",
-        accessorFn: (o) => o.name,
+        accessorFn: (o) => o.id,
         cell: ({ row: { original: o } }) => <OperatorChip operator={o} />,
       },
       {
@@ -63,7 +63,7 @@ export function OperatorTable({
         cell: ({ row: { original: o } }) => (
           <span className="flex flex-col items-end leading-tight">
             <span className="font-mono">{o.hoursWorked.toFixed(1)} h</span>
-            <span className="text-caption text-muted-foreground">{o.hoursThisWeek} h / wk</span>
+            <span className="text-caption text-muted-foreground">in this plan</span>
           </span>
         ),
         meta: { align: "right", className: "hidden xl:table-cell" },
@@ -106,7 +106,7 @@ export function OperatorTable({
       data={operators}
       isLoading={!operators}
       getRowId={(o) => o.id}
-      searchText={(o) => `${o.id} ${o.name} ${o.machineId ?? ""}`}
+      searchText={(o) => `${o.id} ${o.skills.join(" ")} ${o.machineId ?? ""}`}
       searchPlaceholder="Search operators…"
       toolbar={toolbar}
       onRowClick={(o) => onSelect(o.id)}

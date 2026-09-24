@@ -3,13 +3,17 @@ import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import type { Machine, Operator } from "@/lib/types";
 import { MachineIcon } from "./machine-icon";
 
-/** Avatar + name + mono ID — the first-column pattern for tables (spec §11). */
+/**
+ * Avatar + worker ID — the first-column pattern for tables (spec §11).
+ * The roster identifies operators by ID only; there are no personal names in
+ * the backend, so the ID is the identity and the skill level is the subtitle.
+ */
 export function OperatorChip({
   operator,
   size = "md",
   className,
 }: {
-  operator: Pick<Operator, "id" | "name" | "initials">;
+  operator: Pick<Operator, "id" | "initials" | "skillLevel">;
   size?: "sm" | "md";
   className?: string;
 }) {
@@ -21,8 +25,10 @@ export function OperatorChip({
         </AvatarFallback>
       </Avatar>
       <span className="flex min-w-0 flex-col leading-tight">
-        <span className="truncate font-medium text-foreground">{operator.name}</span>
-        {size === "md" ? <span className="font-mono text-caption text-muted-foreground">{operator.id}</span> : null}
+        <span className="truncate font-mono font-medium text-foreground">{operator.id}</span>
+        {size === "md" ? (
+          <span className="text-caption text-muted-foreground">Skill {operator.skillLevel}/10</span>
+        ) : null}
       </span>
     </span>
   );

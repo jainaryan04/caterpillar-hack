@@ -56,7 +56,7 @@ export default function TaskCalendar({ tasks, lookup, onSelectTask }: TaskCalend
           const props: TaskEventProps = {
             task: t,
             machineLabel: machine?.id,
-            operatorName: lookup.operator(t.operatorId)?.name,
+            operatorName: lookup.operator(t.operatorId)?.id,
           };
           return {
             id: t.id,

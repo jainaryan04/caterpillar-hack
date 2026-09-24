@@ -66,7 +66,7 @@ export function TaskList({ tasks, lookup, onSelect, selectedId, toolbar, filters
       {
         id: "operator",
         header: "Operator",
-        accessorFn: (t) => lookup.operator(t.operatorId)?.name ?? "",
+        accessorFn: (t) => lookup.operator(t.operatorId)?.id ?? "",
         cell: ({ getValue }) => (getValue<string>() || <span className="text-muted-foreground">Unassigned</span>),
         meta: { className: "hidden lg:table-cell" },
       },
@@ -107,7 +107,7 @@ export function TaskList({ tasks, lookup, onSelect, selectedId, toolbar, filters
       data={tasks}
       isLoading={!tasks}
       getRowId={(t) => t.id}
-      searchText={(t) => `${t.id} ${t.title} ${t.machineId ?? ""} ${lookup.operator(t.operatorId)?.name ?? ""}`}
+      searchText={(t) => `${t.id} ${t.title} ${t.machineId ?? ""} ${lookup.operator(t.operatorId)?.id ?? ""}`}
       searchPlaceholder="Search tasks, machines, operators…"
       toolbar={toolbar}
       onRowClick={(t) => onSelect(t.id)}
