@@ -9,20 +9,12 @@ import { SosBanner } from '@/components/agent/SosBanner';
 import { ThinkingIndicator } from '@/components/agent/ThinkingIndicator';
 import { WakeWordBar } from '@/components/agent/WakeWordBar';
 import { AppText } from '@/components/ui/AppText';
-import { Chip } from '@/components/ui/Chip';
 import { ConnectionBanner } from '@/components/ui/ConnectionBanner';
 import { StateView } from '@/components/ui/StateView';
 import { CatOrb } from '@/components/agent/CatOrb';
 import { useAgent } from '@/state/AgentProvider';
 import type { AgentMessage as Message } from '@/types/agent';
 import { colors, spacing } from '@/theme/tokens';
-
-const SUGGESTIONS = [
-  'What is my next task?',
-  'How do I check the hydraulic pressure?',
-  'Lockout steps for the pump',
-  'Is this leak normal?',
-];
 
 export default function AgentScreen() {
   const agent = useAgent();
@@ -121,18 +113,6 @@ export default function AgentScreen() {
           </View>
         ) : null}
 
-        <ScrollView
-          horizontal
-          showsHorizontalScrollIndicator={false}
-          contentContainerStyle={styles.suggestions}
-          keyboardShouldPersistTaps="handled"
-          style={styles.suggestionBar}
-        >
-          {SUGGESTIONS.map((s) => (
-            <Chip key={s} label={s} onPress={() => send(s)} />
-          ))}
-        </ScrollView>
-
         <AgentInput
           onSend={send}
           onMic={() => agent.startVoice(agent.chatContext)}
@@ -156,6 +136,4 @@ const styles = StyleSheet.create({
   dayLabel: { textAlign: 'center', marginBottom: spacing.lg },
   empty: { flexGrow: 1, alignItems: 'center', justifyContent: 'center', gap: spacing.md, padding: spacing.xxl },
   context: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, paddingHorizontal: spacing.lg, paddingBottom: spacing.sm },
-  suggestionBar: { flexGrow: 0 },
-  suggestions: { gap: spacing.sm, paddingHorizontal: spacing.md, paddingBottom: spacing.sm },
 });

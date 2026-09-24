@@ -2,6 +2,7 @@ import { config } from '@/config';
 import type { AgentResponse, ImageAnalysis } from '@/types/agent';
 import type { LearningCategory, LearningLibrary, TrainingVideo } from '@/types/domain';
 import { request } from '../http';
+import { shiftTasks } from '../local/shiftTasks';
 import { videoProgress } from '../local/videoProgress';
 import type { AgentService, MediaService, VideoService } from '../types';
 import type { CatAgentResponse, CatImageAnalysis, CatManualOpen, CatTrainingVideo } from './catTypes';
@@ -23,7 +24,7 @@ export const catAgentService: AgentService = {
   async sendMessage(message, context) {
     const r = await request<CatAgentResponse>(base(), '/api/app/agent/message', {
       method: 'POST',
-      body: { message, context, sessionId: sessionId() },
+      body: { message, context, sessionId: sessionId(), tasks: shiftTasks() },
       timeoutMs: 30000,
     });
     const response: AgentResponse = {

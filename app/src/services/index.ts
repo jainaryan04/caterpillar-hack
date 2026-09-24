@@ -12,6 +12,7 @@
 import { config } from '@/config';
 import { catAgentService, catMediaService, catVideoService } from './cat/catServices';
 import { fleetConnectionService, fleetOperatorService, fleetTaskService } from './fleet/fleetServices';
+import { trackShiftTasks } from './local/shiftTasks';
 import { mockAgentService } from './mock/mockAgentService';
 import { mockConnectionService } from './mock/mockConnectionService';
 import { mockMediaService } from './mock/mockMediaService';
@@ -35,7 +36,7 @@ const mocks = config.useMocks;
 const fleetMocks = config.mockFleet;
 
 export const operatorService: OperatorService = fleetMocks ? mockOperatorService : fleetOperatorService;
-export const taskService: TaskService = fleetMocks ? mockTaskService : fleetTaskService;
+export const taskService: TaskService = trackShiftTasks(fleetMocks ? mockTaskService : fleetTaskService);
 export const connectionService: ConnectionService = fleetMocks ? mockConnectionService : fleetConnectionService;
 export const agentService: AgentService = mocks ? mockAgentService : catAgentService;
 export const mediaService: MediaService = mocks ? mockMediaService : catMediaService;

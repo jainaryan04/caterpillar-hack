@@ -26,14 +26,16 @@ import json
 import re
 import time
 import uuid
+from dataclasses import dataclass
 from datetime import datetime, timezone
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import StreamingResponse
 from loguru import logger
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from cat.display import IMAGE_URL_PREFIX, PAGES_URL_PREFIX
+from cat.memory import get_manual_memory
 from cat.screen import LOCAL_SESSION, get_screen_store
 from cat.specialists.machine_expert import ExpertAnswer, answer_from_manual, remember_answer
 from cat.tools.manual import find_pages
@@ -47,6 +49,27 @@ MAX_PHOTO_BYTES = 12 * 1024 * 1024
 _POINTING = re.compile(
     r"\b(this|that|these|those|here|circled?|highlighted|tapped|marked|on (the |my )?screen|"
     r"in (the |my |this )?(photo|picture|pic|image|video|frame)|number \d+)\b",
+    re.IGNORECASE,
+)
+
+# Asking about Cat's last answer rather than naming something ("explain it in simple words").
+_FOLLOW_UP = re.compile(
+    r"\b(simple|simpler|simply|plain|easier|easy words|layman|(don't|do not|didn't|did not) (get|understand)|"
+    r"what do you mean|what does that mean|explain( it| that| this)? (again|more|better|properly)|"
+    r"say (it|that) again|repeat|more detail|elaborate|rephrase|in other words)\b",
+    re.IGNORECASE,
+)
+FOLLOW_UP_MAX_AGE_SECS = 10 * 60
+
+# "What should I do next?": answered from the task list the phone sends with each question
+# (Cat has no access to the plan itself). Anchored so manual questions ("what should I do before starting the engine?") don't match.
+_TASK_QUESTION = re.compile(
+    r"\b(my|next|today'?s?|current|remaining|pending|assigned)\s+(tasks?|jobs?|assignments?|work)\b"
+    r"|\b(tasks?|jobs?)\s+(for\s+)?today\b"
+    r"|\b(which|what)\s+(tasks?|jobs?)\s+(should|do|shall|can|is|are|have|next)\b"
+    r"|\bwhich\s+(task|job)\b"
+    r"|\bwhat('?s| is)\s+next\b"
+    r"|\bwhat\s+(should|do|shall|can)\s+i\s+(do|work on|start)(\s+(next|now|today|first))?\W*$",
     re.IGNORECASE,
 )
 
@@ -92,10 +115,31 @@ class AgentContext(Camel):
     circle: list[tuple[float, float]] | None = None
 
 
+class ShiftTask(Camel):
+    """One of the operator's tasks as the phone has it (app/src/services/local/shiftTasks.ts)."""
+
+    id: str
+    title: str
+    machine: str = ""
+    location: str = ""
+    status: str = "pending"  # pending | in_progress | completed | blocked | cancelled
+    priority: str = "normal"
+    scheduledStart: str = ""  # HH:mm
+    safety: list[str] = []
+
+
+@dataclass
+class TaskAnswer(ExpertAnswer):
+    """An answer about the shift plan; `task_id` is the task to open."""
+
+    task_id: str | None = None
+
+
 class MessageIn(Camel):
     message: str
     context: AgentContext | None = None
     sessionId: str = LOCAL_SESSION
+    tasks: list[ShiftTask] | None = Field(None, description="The operator's tasks, for \"what should I do next?\"")
     mode: str = Field("auto", description="auto | manual (general question) | screen (about the screen)")
 
 
@@ -161,10 +205,12 @@ def _agent_response(request: Request, answer: ExpertAnswer, seen: dict | None, k
         "id": _id("MSG"),
         "text": answer.text,
         "citations": _citations(answer, seen),
-        "actions": [{"type": "ANSWER"}],
+        "actions": [{"type": "OPEN_TASK", "taskId": answer.task_id}]
+        if isinstance(answer, TaskAnswer) and answer.task_id
+        else [{"type": "ANSWER"}],
         "createdAt": _now(),
         # extras
-        "kind": kind,  # "manual" (general RAG) | "screen" (paused video / photo)
+        "kind": kind,  # "manual" (general RAG) | "screen" (paused video / photo) | "task" (shift plan)
         **_extras(request, answer, seen),
         "ms": round(ms),
     }
@@ -265,16 +311,55 @@ async def agent_message(request: Request, body: MessageIn):
     `mode` forces one or the other.
     """
     t0 = time.perf_counter()
-    answer, seen, kind = await _answer(body.message, body.context, body.sessionId, body.mode)
+    answer, seen, kind = await _answer(body.message, body.context, body.sessionId, body.mode, body.tasks)
     return _agent_response(request, answer, seen, kind, 1000 * (time.perf_counter() - t0))
 
 
+_SHIFT_TASKS = TypeAdapter(list[ShiftTask])
+
+
+def _spoken(text: str) -> str:
+    return text.replace(" · ", ", ")
+
+
+def _clock(hhmm: str) -> str:
+    return hhmm.removeprefix("0")  # "09:30" -> "9:30", as it's said
+
+
+def _task_answer(tasks: list[ShiftTask] | None) -> TaskAnswer:
+    """What to do next, from the phone's task list: the task in progress, else the next one due."""
+    if not tasks:
+        return TaskAnswer("I can't see your task list yet. Open the Home tab, then ask me again.")
+    left = [t for t in tasks if t.status in ("in_progress", "pending")]
+    if not left:
+        return TaskAnswer("You've finished all your tasks for this shift. Nice work.")
+    left.sort(key=lambda t: (t.status != "in_progress", t.scheduledStart))
+    now, later = left[0], left[1:3]
+    where = f"{_spoken(now.machine)}, at {_spoken(now.location)}" if now.location else _spoken(now.machine)
+    if now.status == "in_progress":
+        text = f"You're in the middle of {now.title}, {where}. Finish that first."
+    else:
+        text = f"Your next task is {now.title}, {where}"
+        text += f", at {_clock(now.scheduledStart)}." if now.scheduledStart else "."
+        if now.priority == "high":
+            text += " It's high priority."
+        if now.safety:
+            text += " Before you start: " + "; ".join(s.rstrip(".") for s in now.safety) + "."
+    if later:
+        text += " After that, " + ", then ".join(
+            f"{t.title}" + (f" at {_clock(t.scheduledStart)}" if t.scheduledStart else "") for t in later
+        ) + "."
+    return TaskAnswer(text, task_id=now.id)
+
+
 async def _answer(
-    message: str, ctx: AgentContext | None, session_id: str, mode: str = "auto"
+    message: str, ctx: AgentContext | None, session_id: str, mode: str = "auto", tasks: list[ShiftTask] | None = None
 ) -> tuple[ExpertAnswer, dict | None, str]:
     """(answer, what was on screen, "screen" | "manual") for a question, typed or spoken."""
     from cat.server import report_video_pause  # avoid an import cycle
 
+    if _TASK_QUESTION.search(message):
+        return _task_answer(tasks), None, "task"
     ctx = ctx or AgentContext()
     if ctx.videoId is not None and ctx.timestamp is not None:
         try:
@@ -292,7 +377,9 @@ async def _answer(
             answer, seen = ExpertAnswer(NOTHING_ON_SCREEN), None
         remember_answer(message, answer)
         return answer, seen, "screen"
-    answer = await answer_from_manual(message)
+    last = get_manual_memory().last()
+    follows_up = last and _FOLLOW_UP.search(message) and time.monotonic() - last.at < FOLLOW_UP_MAX_AGE_SECS
+    answer = await answer_from_manual(message, earlier=last if follows_up else None)
     remember_answer(message, answer)
     return answer, None, "manual"
 
@@ -386,6 +473,7 @@ async def voice(
     file: UploadFile = File(..., description="The recorded question (m4a / 3gp / wav)"),
     context: str | None = Form(None, description="JSON AgentContext, as for /agent/message"),
     sessionId: str = Form(LOCAL_SESSION),
+    tasks: str | None = Form(None, description="JSON list of ShiftTask, as for /agent/message"),
 ):
     """Push-to-talk: a recorded question in, an AgentResponse plus Cat's spoken answer out.
 
@@ -430,7 +518,11 @@ async def voice(
                 "height": opened.height,
             }
     else:
-        answer, seen, kind = await _answer(question, ctx, sessionId)
+        try:
+            shift = _SHIFT_TASKS.validate_json(tasks) if tasks else None
+        except ValueError:
+            shift = None  # an unreadable list only costs the task answer
+        answer, seen, kind = await _answer(question, ctx, sessionId, tasks=shift)
 
     # The phone plays this URL; speech is made while it streams (see voice_audio).
     audio_url = _absolute(request, f"/api/app/voice/{queue_reply(answer.text)}.mp3")

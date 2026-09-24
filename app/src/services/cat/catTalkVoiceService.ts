@@ -8,6 +8,7 @@ import {
 import { config } from '@/config';
 import type { AgentContext, VoiceConnection } from '@/types/agent';
 import { request } from '../http';
+import { shiftTasks } from '../local/shiftTasks';
 import type { VoiceService } from '../types';
 import { createVoiceEvents } from '../voiceEvents';
 import type { CatVoiceReply } from './catTypes';
@@ -34,6 +35,8 @@ const SILENCE_DB = -45;
 const END_OF_SPEECH_MS = 1300;
 const NOTHING_SAID_MS = 7000;
 const MAX_RECORDING_MS = 20000;
+/** Cat's speaking rate (Deepgram Aura, ~160 wpm), for showing the answer while its length is unknown. */
+const WORDS_PER_SEC = 2.7;
 
 const events = createVoiceEvents();
 let connection: VoiceConnection = 'disconnected';
@@ -110,16 +113,33 @@ async function record(current: number): Promise<string | null> {
   });
 }
 
-/** Plays Cat's answer; resolves when it ends (or fails, or runs too long). */
+/**
+ * Plays Cat's answer and shows its words as they are spoken, not all at once
+ * before the voice starts; resolves when it ends (or fails, or runs too long).
+ */
 function play(url: string, text: string, current: number): Promise<void> {
   return new Promise((resolve) => {
     stopPlayback();
     const p = createAudioPlayer({ uri: url }, { updateInterval: 100 });
     player = p;
-    const words = text.split(/\s+/).length;
-    const safety = setTimeout(done, words * 600 + 15000);
+    const words = text.split(/\s+/).filter(Boolean);
+    let shown = 0;
+    const reveal = (upTo: number) => {
+      const n = Math.min(words.length, Math.ceil(upTo));
+      if (n <= shown) return;
+      // The overlay stays on "thinking" until the first word, then appends each bot-text.
+      if (!shown) events.emit({ type: 'bot-speaking', speaking: true });
+      events.emit({ type: 'bot-text', text: words.slice(shown, n).join(' ') });
+      shown = n;
+    };
+    const safety = setTimeout(done, words.length * 600 + 15000);
     let level: ReturnType<typeof setInterval> | null = setInterval(() => {
       events.emit({ type: 'level', source: 'remote', level: p.playing ? 0.3 + Math.random() * 0.6 : 0 });
+      if (p.currentTime > 0) {
+        // The reply is streamed, so its length is often unknown until the end: fall back to the speaking rate.
+        const d = p.duration;
+        reveal(d > 0 && Number.isFinite(d) ? (p.currentTime / d) * words.length : p.currentTime * WORDS_PER_SEC);
+      }
     }, 90);
     const sub = p.addListener('playbackStatusUpdate', (s) => {
       if (s.didJustFinish) done();
@@ -129,6 +149,8 @@ function play(url: string, text: string, current: number): Promise<void> {
       if (level) clearInterval(level);
       level = null;
       sub.remove();
+      // Whatever wasn't spoken yet (audio failed, or the estimate ran slow).
+      if (current === run) reveal(words.length);
       events.emit({ type: 'level', source: 'remote', level: 0 });
       if (player === p) stopPlayback();
       resolve();
@@ -161,6 +183,8 @@ async function ask(context?: AgentContext) {
     form.append('file', { uri, name: 'question.m4a', type: 'audio/mp4' } as unknown as Blob);
     if (context) form.append('context', JSON.stringify(context));
     form.append('sessionId', 'local');
+    // So "what should I do next?" reflects tasks marked done on this phone.
+    form.append('tasks', JSON.stringify(shiftTasks()));
     const reply = await request<CatVoiceReply>(config.catApiUrl, '/api/app/voice', {
       method: 'POST',
       body: form,
@@ -171,9 +195,12 @@ async function ask(context?: AgentContext) {
     events.emit({ type: 'user-transcript', text: `Hey Cat, ${reply.transcript || '…'}`, final: true });
     if (reply.pages) events.emit({ type: 'manual-pages', ...reply.pages });
     if (reply.imageUrl) events.emit({ type: 'manual-image', url: reply.imageUrl, page: reply.manual?.page });
-    events.emit({ type: 'bot-speaking', speaking: true });
-    events.emit({ type: 'bot-text', text: reply.text });
-    if (reply.audioUrl) await play(reply.audioUrl, reply.text, current);
+    if (reply.audioUrl) {
+      await play(reply.audioUrl, reply.text, current);
+    } else {
+      events.emit({ type: 'bot-speaking', speaking: true });
+      events.emit({ type: 'bot-text', text: reply.text });
+    }
     if (current === run) events.emit({ type: 'bot-speaking', speaking: false });
   } catch (e) {
     if (current === run) fail(e instanceof Error ? e.message : 'Cat did not answer.');

@@ -28,7 +28,7 @@ export default function CameraPreviewScreen() {
   const [question, setQuestion] = useState('');
   const [phase, setPhase] = useState<Phase>({ kind: 'compose' });
   const [mark, setMark] = useState<PhotoMark>();
-  const { appendMessages } = useAgent();
+  const { appendMessages, runAction } = useAgent();
 
   if (!uri) {
     return (
@@ -65,7 +65,6 @@ export default function CameraPreviewScreen() {
         id: analysis.id,
         role: 'agent',
         text: `${analysis.summary}\n\n${analysis.findings.map((f) => `• ${f.label}`).join('\n')}\n\n${analysis.recommendedAction}`,
-        caution: analysis.limitations,
         createdAt: analysis.createdAt,
         mode: 'image',
         status: 'sent',
@@ -144,7 +143,7 @@ export default function CameraPreviewScreen() {
               <AppText variant="small" tone="muted">
                 You asked: “{phase.question}”
               </AppText>
-              <ImageAnalysisResult analysis={phase.analysis} />
+              <ImageAnalysisResult analysis={phase.analysis} onRunAction={runAction} />
               <ActionButton
                 label="Continue in chat"
                 icon="message-text-outline"

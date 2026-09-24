@@ -16,6 +16,7 @@ instead of a tool-call round trip. The agent runs on the same provider as the
 voice loop (Cerebras by default).
 """
 
+import asyncio
 import re
 import time
 from dataclasses import dataclass
@@ -64,8 +65,18 @@ forward/backward, "before"/"after", "only when", "will not". Say which position 
 exactly as written (e.g. "the engine starts only with the lever in LOCKED"), never inverted.
 
 Your answer is read aloud to an operator who is working the machine:
+- Explain it in your own everyday words, like an experienced operator talking a new one \
+through it. Don't read the manual's sentences out; say what it means for them.
 - One or two short sentences, under 45 words, in plain speech. No lists, markdown or symbols.
 - Then the page, e.g. "That's on page 96 of the manual."
+
+If the operator asks you to explain more simply, or says they don't understand \
+("in simple terms", "what does that mean", "explain it like I'm new"), really explain it:
+- Start from what it is for and why it matters to them, then what to do, in the \
+simplest words. Swap manual terms for everyday ones (say "the lever that locks \
+the controls" rather than only its name). A short everyday comparison is fine.
+- Up to four short sentences, under 70 words. Don't repeat the manual's wording.
+- Simpler words, same facts: the accuracy rules above still apply.
 
 Pictures: the excerpts contain markers like [image g00867598] where the \
 manual's illustrations sit; a picture belongs to the text right after it. \
@@ -80,6 +91,7 @@ image: none
 """
 
 EXPERT_HEDGE_SECS = 2.5
+EXPERT_TEMPERATURE = 0.2
 
 SHOWN_ON_SCREEN = " I've put the picture from the manual on your screen."
 
@@ -107,6 +119,17 @@ stating it as fact, then what the 320D manual says about that control; if two \
 guesses are close, mention both briefly. Start by \
 naming the step or the \
 control, e.g. "That's the travel alarm cancel switch."
+"""
+
+# Added to the prompt when the operator may be following up on Cat's last answer.
+EARLIER = """\
+Just before this, the operator asked: {question}
+You answered: {answer}
+If the new question follows up on that ("explain it more simply", "what does \
+that mean?", "say it again"), it is about the same control or task: explain \
+that again, as the new question asks, rather than looking for something new. \
+If it names a different control or task, answer that instead.
+
 """
 
 
@@ -177,7 +200,11 @@ async def search_manual(query: str) -> str:
 def _machine_expert() -> Agent:
     cfg = load_config()
     client = AsyncOpenAI(api_key=cfg.llm_api_key, base_url=cfg.llm_base_url)
-    settings = ModelSettings(reasoning=Reasoning(effort="low")) if cfg.llm_provider == "cerebras" else ModelSettings()
+    # Low temperature: plain-language answers, but no drifting from the manual (typed, voice and photo all use this).
+    settings = ModelSettings(
+        temperature=EXPERT_TEMPERATURE,
+        reasoning=Reasoning(effort="low") if cfg.llm_provider == "cerebras" else None,
+    )
     return Agent(
         name="Machine Expert",
         model=OpenAIChatCompletionsModel(model=cfg.llm_model, openai_client=client),
@@ -187,21 +214,45 @@ def _machine_expert() -> Agent:
     )
 
 
+async def _search_with_earlier(question: str, earlier: ManualLookup) -> list[Passage]:
+    """A follow-up's own words rarely name the part, so also search what the last answer was about."""
+    store = get_store()
+    about_earlier, about_question = await asyncio.gather(
+        store.search(f"{earlier.topic}. {earlier.answer}"), store.search_for_question(question)
+    )
+    seen, merged = set(), []
+    for p in about_earlier + about_question:
+        if (p.title, p.page) not in seen:
+            seen.add((p.title, p.page))
+            merged.append(p)
+    return merged
+
+
 async def answer_from_manual(
-    question: str, screen: str | None = None, passages: list[Passage] | None = None
+    question: str,
+    screen: str | None = None,
+    passages: list[Passage] | None = None,
+    earlier: ManualLookup | None = None,
 ) -> ExpertAnswer:
     """Answer from the manual. `screen` describes what the operator is looking at
     (cat/screen.py) and `passages` are the manual sections already known to be
-    behind it; without them the manual is searched with the question."""
+    behind it; without them the manual is searched with the question. `earlier`
+    is Cat's last answer, when the question may follow up on it ("explain that simpler")."""
     t0 = time.perf_counter()
     if not passages:
         try:
-            passages = await get_store().search_for_question(question)
+            if earlier:
+                passages = await _search_with_earlier(question, earlier)
+            else:
+                passages = await get_store().search_for_question(question)
         except Exception as e:
             logger.error(f"Manual search failed: {e}")
             return ExpertAnswer("I couldn't reach the manual just now. Please try again in a moment.")
     t_search = time.perf_counter()
-    prompt = f"Operator's question: {question}\n\n"
+    prompt = ""
+    if earlier:
+        prompt += EARLIER.format(question=earlier.question, answer=earlier.answer)
+    prompt += f"Operator's question: {question}\n\n"
     if screen:
         prompt += f"{SCREEN_RULES}\nOn the operator's screen right now:\n{screen}\n\n"
     prompt += f"Manual excerpts:\n\n{format_passages(passages)}"

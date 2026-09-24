@@ -27,18 +27,26 @@ export async function request<T>(baseUrl: string, path: string, options: Request
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   const isForm = typeof FormData !== 'undefined' && body instanceof FormData;
-
-  let res: Response;
-  try {
-    res = await fetch(`${baseUrl}${path}`, {
+  const send = () =>
+    fetch(`${baseUrl}${path}`, {
       method,
       signal: controller.signal,
       headers: body !== undefined && !isForm ? { 'Content-Type': 'application/json', Accept: 'application/json' } : { Accept: 'application/json' },
       body: body === undefined ? undefined : isForm ? (body as FormData) : JSON.stringify(body),
     });
+  const isAbort = (e: unknown) => e instanceof Error && e.name === 'AbortError';
+
+  let res: Response;
+  try {
+    try {
+      res = await send();
+    } catch (e) {
+      // A pooled connection the server already closed fails at once; a fresh one works. Try once more.
+      if (isAbort(e)) throw e;
+      res = await send();
+    }
   } catch (e) {
-    const timedOut = e instanceof Error && e.name === 'AbortError';
-    throw new ApiError(timedOut ? 'The server took too long to respond.' : 'Cannot reach the server.', 0);
+    throw new ApiError(isAbort(e) ? 'The server took too long to respond.' : 'Cannot reach the server.', 0);
   } finally {
     clearTimeout(timer);
   }

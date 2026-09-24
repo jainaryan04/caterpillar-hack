@@ -53,6 +53,10 @@ MAX_PHOTO_BYTES = 12 * 1024 * 1024
 
 Point = tuple[float, float]  # 0-1 across and down the picture
 MAX_CIRCLE_POINTS = 400
+# Longer than a phone keeps idle connections (Android's OkHttp: 5 min). With uvicorn's
+# 5 s default the phone reused connections the server had closed, and the first
+# question after a pause failed with "Cannot reach the server".
+KEEP_ALIVE_SECS = 330
 
 
 class VideoPause(BaseModel):
@@ -282,4 +286,13 @@ class _Server(uvicorn.Server):
 
 
 def make_server(host: str, port: int) -> uvicorn.Server:
-    return _Server(uvicorn.Config(create_app(), host=host, port=port, log_level="warning", access_log=False))
+    return _Server(
+        uvicorn.Config(
+            create_app(),
+            host=host,
+            port=port,
+            log_level="warning",
+            access_log=False,
+            timeout_keep_alive=KEEP_ALIVE_SECS,
+        )
+    )

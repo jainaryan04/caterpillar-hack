@@ -26,7 +26,8 @@ export default function CameraScreen() {
     const result = source === 'camera' ? await imagePicker.takePhoto() : await imagePicker.chooseFromGallery();
     setBusy(null);
     if (result.status === 'picked') {
-      router.push({ pathname: '/camera/preview', params: { uri: result.uri } });
+      // useLocalSearchParams decodes once; Expo Go's cache path has %-escapes of its own.
+      router.push({ pathname: '/camera/preview', params: { uri: encodeURIComponent(result.uri) } });
     } else if (result.status !== 'cancelled') {
       setProblem(result);
     }

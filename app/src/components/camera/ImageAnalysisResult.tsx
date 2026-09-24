@@ -1,11 +1,12 @@
 import { StyleSheet, View } from 'react-native';
-import type { ImageAnalysis, ImageFindingSeverity } from '@/types/agent';
+import type { AgentAction, ImageAnalysis, ImageFindingSeverity } from '@/types/agent';
 import { colors, radius, spacing } from '@/theme/tokens';
+import { AgentActions } from '../agent/AgentActions';
+import { withManualAction } from '../agent/agentActionMeta';
 import { AppText } from '../ui/AppText';
 import { Card } from '../ui/Card';
 import { Icon, type IconName } from '../ui/Icon';
 import { RemoteImage } from '../ui/RemoteImage';
-import { Badge } from '../ui/StatusBadge';
 
 const severity: Record<ImageFindingSeverity, { icon: IconName; color: string; label: string }> = {
   critical: { icon: 'alert-octagon', color: colors.danger, label: 'Critical' },
@@ -13,10 +14,14 @@ const severity: Record<ImageFindingSeverity, { icon: IconName; color: string; la
   info: { icon: 'information-outline', color: colors.info, label: 'Note' },
 };
 
-const confidenceLabel = { low: 'Low confidence', medium: 'Medium confidence', high: 'High confidence' };
-
-/** Agent's reading of a machinery photo. Uncertainty is shown, never hidden. */
-export function ImageAnalysisResult({ analysis }: { analysis: ImageAnalysis }) {
+/** Agent's reading of a machinery photo, with a button to the manual page it came from. */
+export function ImageAnalysisResult({
+  analysis,
+  onRunAction,
+}: {
+  analysis: ImageAnalysis;
+  onRunAction?: (action: AgentAction) => void;
+}) {
   const hasCritical = analysis.findings.some((f) => f.severity === 'critical');
   return (
     <Card accent={hasCritical ? 'danger' : undefined} style={styles.card}>
@@ -27,7 +32,6 @@ export function ImageAnalysisResult({ analysis }: { analysis: ImageAnalysis }) {
         <AppText variant="label" tone="secondary" caps style={{ flex: 1 }}>
           Cat · Photo check
         </AppText>
-        <Badge label={confidenceLabel[analysis.confidence]} fg={colors.textSecondary} bg={colors.neutralSubtle} />
       </View>
 
       <AppText variant="heading">{analysis.summary}</AppText>
@@ -57,22 +61,14 @@ export function ImageAnalysisResult({ analysis }: { analysis: ImageAnalysis }) {
         })}
       </View>
 
-      <View style={styles.limits}>
-        <View style={styles.row}>
-          <Icon name="help-circle-outline" size={18} color={colors.warning} />
-          <AppText variant="label" tone="warning" caps>
-            What I can’t confirm
-          </AppText>
-        </View>
-        <AppText variant="small">{analysis.limitations}</AppText>
-      </View>
-
       <View style={styles.next}>
         <AppText variant="label" tone="secondary" caps>
           What to do
         </AppText>
         <AppText variant="bodyStrong">{analysis.recommendedAction}</AppText>
       </View>
+
+      {onRunAction ? <AgentActions actions={withManualAction([], analysis.manual)} onRun={onRunAction} /> : null}
     </Card>
   );
 }
@@ -104,14 +100,5 @@ const styles = StyleSheet.create({
   },
   findings: { gap: spacing.sm },
   finding: { flexDirection: 'row', gap: spacing.sm, alignItems: 'flex-start' },
-  limits: {
-    gap: spacing.xs,
-    padding: spacing.md,
-    borderRadius: radius.md,
-    borderWidth: 1,
-    borderColor: colors.warning,
-    backgroundColor: colors.warningSubtle,
-  },
-  row: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
   next: { gap: spacing.xs, paddingTop: spacing.sm, borderTopWidth: 1, borderTopColor: colors.border },
 });
