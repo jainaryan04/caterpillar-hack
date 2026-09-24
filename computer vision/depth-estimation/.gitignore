@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.venv/
+out/
+# Checkpoints are re-fetchable build artifacts: ./scripts/fetch_model.sh
+models/
+*.pth
+inputs/
+.DS_Store
+.env
+results/
