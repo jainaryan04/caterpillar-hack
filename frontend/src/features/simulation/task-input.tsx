@@ -9,7 +9,6 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import type { DraftTask } from "@/lib/api/client";
 import {
   COUNT_UNITS,
-  SHIFT_TYPES,
   TASK_TYPE_SPECS,
   WEATHER,
   taskTypesFor,
@@ -41,12 +40,22 @@ function Pick<T extends string>({ id, value, onChange, options }: { id: string; 
  * duration model actually reads. Every option comes from the model's own
  * catalog, so nothing here can be rejected by it.
  */
-export function TaskInput({ industry, busy, onSubmit }: { industry: Industry; busy: boolean; onSubmit: (task: DraftTask) => void }) {
+export function TaskInput({
+  industry,
+  shift,
+  busy,
+  onSubmit,
+}: {
+  industry: Industry;
+  /** Set once for the whole day, not per task. */
+  shift: ShiftType;
+  busy: boolean;
+  onSubmit: (task: DraftTask) => void;
+}) {
   const types = taskTypesFor(industry);
   const [type, setType] = useState<TaskType>(types[0]);
   const [quantity, setQuantity] = useState<number>(TASK_TYPE_SPECS[types[0]].typical);
   const [weather, setWeather] = useState<Weather>("Sunny");
-  const [shift, setShift] = useState<ShiftType>("Day");
 
   // New site, new task types.
   const [lastIndustry, setLastIndustry] = useState(industry);
@@ -108,19 +117,11 @@ export function TaskInput({ industry, busy, onSubmit }: { industry: Industry; bu
           className="tabular-nums"
         />
       </div>
-      <div className="grid grid-cols-2 gap-3">
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sim-weather" className="text-small text-foreground-secondary">
-            Weather
-          </Label>
-          <Pick id="sim-weather" value={weather} onChange={setWeather} options={WEATHER} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <Label htmlFor="sim-shift" className="text-small text-foreground-secondary">
-            Shift
-          </Label>
-          <Pick id="sim-shift" value={shift} onChange={setShift} options={SHIFT_TYPES} />
-        </div>
+      <div className="flex flex-col gap-1.5">
+        <Label htmlFor="sim-weather" className="text-small text-foreground-secondary">
+          Weather
+        </Label>
+        <Pick id="sim-weather" value={weather} onChange={setWeather} options={WEATHER} />
       </div>
       <Button type="submit" disabled={!valid || busy}>
         {busy ? <Loader2 className="animate-spin" /> : <Plus />}

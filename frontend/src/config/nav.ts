@@ -1,6 +1,7 @@
 import {
   CalendarClock,
-  Clapperboard,
+  Cctv,
+  CalendarRange,
   ChartColumn,
   HardHat,
   LayoutDashboard,
@@ -32,6 +33,7 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { title: "Dashboard", href: "/dashboard", icon: LayoutDashboard },
       { title: "Live Map", href: "/map", icon: Map },
+      { title: "Monitoring", href: "/monitoring", icon: Cctv },
       { title: "Safety & SOS", href: "/safety", icon: ShieldAlert, badge: "sos" },
     ],
   },
@@ -39,7 +41,7 @@ export const NAV_GROUPS: NavGroup[] = [
     label: "Planning",
     items: [
       { title: "Tasks", href: "/tasks", icon: CalendarClock, badge: "delayed" },
-      { title: "Simulate", href: "/simulation", icon: Clapperboard },
+      { title: "Schedule", href: "/simulation", icon: CalendarRange },
     ],
   },
   {

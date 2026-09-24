@@ -280,3 +280,33 @@ comparison data in the UI**. Changes:
    recomputes correctly, confirm zero network writes during playback.
 9. `npx tsc --noEmit` and `npx eslint src --max-warnings=0` clean; manually
    verified in-browser at `localhost:3000`.
+
+## Session 4 — Monitoring, Turbopack, plan-a-day simulate
+
+- **Monitoring** (`/monitoring`): CCTV wall of the CV clips in `public/cameras/`
+  (worker-safety, thermal-distance, sleep-detection), muted loop, "No signal"
+  for missing clips. `<video>` renders after mount — a video-speed browser
+  extension injected DOM into it and broke hydration.
+- **Dev speed**: `npm run dev` is now `next dev --turbopack` (first compile per
+  route 3–18 s → <1 s); `npm run dev:webpack` keeps the old path.
+  `turbopack.root` pinned because a stray `~/package-lock.json` made Next infer
+  the home folder as the workspace root.
+- **Simulate** is now plan → run → review, per calendar day:
+  - date picker + Day/Night shift; tasks placed from shift start (06:00/18:00).
+  - "Run the day" (`features/simulation/day.ts` `runDay`): each actual duration
+    = prediction + normal noise whose mean |error| is the model MAE (11.6 min),
+    floored at half the prediction, seeded by date; tasks run in planned order
+    and wait for their worker/machine, so overruns cascade.
+  - Report: tasks done, ran late (> 5 min past plan), day finished vs planned,
+    crew time, then a planned-vs-actual table. Days list = history.
+  - Playback controls removed; playback auto-runs on add and on run.
+  - "Prefer AVAILABLE workers" now applies only when planning today — a live
+    plan's RESERVED status says nothing about tomorrow.
+  - Store `cat-fleet-sim` v2 (days keyed by date); v1 data is dropped.
+- **Superseded same session:** the run-the-day / actuals / report flow was
+  removed at the user's request. The page is now **Schedule** (still
+  `/simulation`): inputs (date, shift, task, quantity, weather) → Gantt by
+  worker on clock times → Assignments table (who, which machine, start,
+  finish, duration). Candidate pairings are deliberately not shown. Map
+  playback, `replay*.ts(x)`, `resource-lanes.tsx`, `day-report.tsx` and
+  `use-replay-clock.ts` deleted.

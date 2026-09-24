@@ -8,10 +8,17 @@ import type { SimTask } from "@/stores/sim-store";
  * already queued on each worker and machine — so a slightly slower pair
  * that is free now beats a faster one that is busy for hours.
  *
- * Workers whose roster status is AVAILABLE are preferred; only if none of
- * them is skilled for the task does it fall back to the rest of the crew.
+ * When planning today, workers whose roster status is AVAILABLE right now are
+ * preferred; only if none of them is skilled for the task does it fall back
+ * to the rest of the crew. A later day starts with the whole crew free.
  */
-export function assign(task: DraftTask, result: PredictResult, roster: Roster, queued: SimTask[]): SimTask {
+export function assign(
+  task: DraftTask,
+  result: PredictResult,
+  roster: Roster,
+  queued: SimTask[],
+  preferAvailableNow: boolean,
+): SimTask {
   const workerFree = new Map<string, number>();
   const machineFree = new Map<string, number>();
   for (const q of queued) {
@@ -20,7 +27,7 @@ export function assign(task: DraftTask, result: PredictResult, roster: Roster, q
   }
 
   const available = new Set(roster.workers.filter((w) => w.status === "AVAILABLE").map((w) => w.worker_id));
-  const preferred = result.candidates.filter((c) => available.has(c.worker_id));
+  const preferred = preferAvailableNow ? result.candidates.filter((c) => available.has(c.worker_id)) : [];
   const pool = preferred.length ? preferred : result.candidates;
   if (!pool.length) throw new Error(`No worker and ${task.required_machine_type} pairing for ${task.task_type}.`);
 

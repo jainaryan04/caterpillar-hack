@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { CalendarDays, Clapperboard, List } from "lucide-react";
+import { CalendarDays, CalendarRange, List } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ALL, FilterSelect } from "@/components/shared/filter-select";
@@ -31,7 +31,7 @@ type Mode = "calendar" | "list";
 /**
  * The published plan for this site — read-only apart from "Mark complete"
  * (PATCH /v1/assignments/{id}). Trying out new tasks happens in the
- * /simulation sandbox; nothing on this page publishes. There is no drag-to-reschedule either: the
+ * /simulation scheduler; nothing on this page publishes. There is no drag-to-reschedule either: the
  * solver owns timing and assignment, not a calendar drag.
  */
 export function TasksView() {
@@ -124,7 +124,7 @@ export function TasksView() {
             />
             <Button asChild>
               <Link href="/simulation">
-                <Clapperboard /> Simulate tasks
+                <CalendarRange /> Schedule tasks
               </Link>
             </Button>
           </>
