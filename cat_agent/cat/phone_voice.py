@@ -29,6 +29,7 @@ from pipecat.workers.runner import WorkerRunner
 
 from cat.config import load_config
 from cat.pipeline import build_worker
+from cat.voice_owner import phone_connected, phone_disconnected
 
 router = APIRouter(tags=["phone voice"])
 _handler = SmallWebRTCRequestHandler()
@@ -48,13 +49,19 @@ async def _run_session(connection: SmallWebRTCConnection) -> None:
     @transport.event_handler("on_client_connected")
     async def on_client_connected(transport, client):
         logger.info(f"PHONE: voice session connected ({connection.pc_id})")
+        phone_connected(connection.pc_id)  # the laptop's own voice session goes quiet
 
     @transport.event_handler("on_client_disconnected")
     async def on_client_disconnected(transport, client):
         logger.info(f"PHONE: voice session ended ({connection.pc_id})")
+        phone_disconnected(connection.pc_id)
         await runner.cancel(reason="phone disconnected")
 
-    await runner.run()
+    try:
+        await runner.run()
+    finally:
+        # However it ended (hang-up, dropped network, error), give the laptop its voice back.
+        phone_disconnected(connection.pc_id)
 
 
 @router.post("/api/offer")

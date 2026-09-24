@@ -50,6 +50,9 @@ Cat speaking → answered) and push manual pictures and pages to the screen.
   A WSL2 NAT address (172.x) with `netsh portproxy` is not enough (TCP only).
 - Screen-aware voice ("what does this do?") uses the agent's `local` screen session, so it follows
   one phone at a time.
+- **The laptop goes quiet while a phone is connected** (`cat_agent/cat/voice_owner.py`): its mic is
+  silenced and its speaker muted, so "Hey Cat" isn't answered twice. It comes back when the phone
+  hangs up, or about 30 s after a phone drops off without hanging up (app killed, Wi-Fi lost).
 
 ## Screens
 

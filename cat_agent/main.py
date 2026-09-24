@@ -25,7 +25,8 @@ async def main():
         LocalAudioTransportParams(audio_in_enabled=True, audio_out_enabled=True)
     )
 
-    worker = build_worker(transport, cfg)
+    # laptop=True: it goes quiet while a phone runs its own voice session (cat/voice_owner.py).
+    worker = build_worker(transport, cfg, laptop=True)
     runner = WorkerRunner(handle_sigint=True)
     await runner.add_workers(worker)
 

@@ -47,10 +47,12 @@ from cat.screen import LOCAL_SESSION
 from cat.server import report_playing, report_video_pause
 from cat.services import make_llm, make_stt, make_tts
 from cat.tools import TOOLS
+from cat.voice_owner import LaptopMicGate, LaptopSpeakerGate
 from cat.wake_word import WAKE_WORDS, CatWakeStrategy, strip_wake_phrase
 
 
-def build_worker(transport: BaseTransport, cfg: Config) -> PipelineWorker:
+def build_worker(transport: BaseTransport, cfg: Config, laptop: bool = False) -> PipelineWorker:
+    """The voice pipeline. `laptop` is the laptop's own mic and speakers (main.py)."""
     # Local voice-activity detection: a small neural net (runs on CPU, no API
     # calls) that answers "is someone talking in this 20ms of audio?".
     vad = VADProcessor(
@@ -107,8 +109,12 @@ def build_worker(transport: BaseTransport, cfg: Config) -> PipelineWorker:
         ),
     )
 
+    # The laptop session goes quiet while a phone runs its own (cat/voice_owner.py).
+    mic_gate, speaker_gate = (LaptopMicGate(), LaptopSpeakerGate()) if laptop else (None, None)
+
     stages = [
         transport.input(),
+        mic_gate,
         vad,
         stt,
         echo_filter,
@@ -116,6 +122,7 @@ def build_worker(transport: BaseTransport, cfg: Config) -> PipelineWorker:
         llm,
         speech_recorder,
         tts,
+        speaker_gate,
         transport.output(),
         assistant_aggregator,
     ]
